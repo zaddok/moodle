@@ -11,7 +11,6 @@ import (
 	"net/http"
 	"net/smtp"
 	"net/url"
-	"psc"
 	"sort"
 	"strings"
 	"time"
@@ -52,8 +51,83 @@ func (m *MoodleApi) SetSmtpSettings(host string, port int, user, password string
 	m.smtpFromEmail = fromEmail
 }
 
+type Course struct {
+	Code        string        `json:",omitempty"`
+	Name        string        `json:",omitempty"`
+	Summary     string        `json:",omitempty"`
+	Assignments []*Assignment `json:",omitempty"`
+	Roles       []*Role       `json:",omitempty"`
+	MoodleId    int64         `json:"-"`
+	Created     *time.Time    `json:"-"`
+	Start       *time.Time    `json:",omitempty"`
+	End         *time.Time    `json:",omitempty"`
+}
+
+type Person struct {
+	MoodleId      int64      `json:",omitempty"`
+	AlphacrucisId string     `json:",omitempty"`
+	Username      string     `json:",omitempty"`
+	Email         string     `json:",omitempty"`
+	PersonalEmail string     `json:",omitempty"`
+	FirstName     string     `json:",omitempty"`
+	LastName      string     `json:",omitempty"`
+	Created       *time.Time `json:",omitempty"`
+	Roles         []*Role    `json:"role,omitempty"`
+}
+
+type Role struct {
+	Person             *Person `json:",omitempty"`
+	Course             *Course `json:",omitempty"`
+	Role               *RoleInfo
+	Enrolled           *time.Time
+	GradeInfo          []GradeInfo `json:",omitempty"`
+	GradeOverride      bool
+	GradeOverrideValue float64
+	GradeFinal         float64
+}
+
+type Submission struct {
+	MoodleId  int64
+	Person    Person
+	Submitted *time.Time
+	Extension *time.Time
+}
+
+type Assignment struct {
+	MoodleId    int64        `json:",omitempty"`
+	Name        string       `json:",omitempty"`
+	Due         *time.Time   `json:",omitempty"`
+	Weight      float64      `json:",omitempty"`
+	Description string       `json:",omitempty"`
+	Submissions []Submission `json:",omitempty"`
+	Type        string       `json:",omitempty"`
+	Updated     *time.Time   `json:",omitempty"`
+}
+
+type RoleInfo struct {
+	Name     string `json:",omitempty"`
+	MoodleId int64  `json:"-"`
+}
+
+type GradeInfo struct {
+	Grade      float64     `json:",omitempty"`
+	GradeMin   float64     `json:",omitempty"`
+	GradeMax   float64     `json:",omitempty"`
+	Assignment *Assignment `json:",omitempty"`
+	Excluded   bool
+	Updated    *time.Time `json:",omitempty"`
+}
+
+type ByCourseCode []Course
+
+func (a ByCourseCode) Len() int      { return len(a) }
+func (a ByCourseCode) Swap(i, j int) { a[i], a[j] = a[j], a[i] }
+func (a ByCourseCode) Less(i, j int) bool {
+	return a[i].Code < a[j].Code
+}
+
 // Get Moodle Account details matching by username
-func (m *MoodleApi) GetPersonByUsername(username string) (*psc.Person, error) {
+func (m *MoodleApi) GetPersonByUsername(username string) (*Person, error) {
 	url := fmt.Sprintf("%swebservice/rest/server.php?wstoken=%s&wsfunction=%s&moodlewsrestformat=json&field=username&values[0]=%s", m.base, m.token, "core_user_get_users_by_field",
 		url.QueryEscape(username))
 	body, err := GetUrl(url)
@@ -85,9 +159,9 @@ func (m *MoodleApi) GetPersonByUsername(username string) (*psc.Person, error) {
 		return nil, err
 	}
 
-	people := make([]psc.Person, 0, len(results))
+	people := make([]Person, 0, len(results))
 	for _, i := range results {
-		p := psc.Person{MoodleId: i.Id, FirstName: i.FirstName, LastName: i.LastName, Email: i.Email, Username: i.Username}
+		p := Person{MoodleId: i.Id, FirstName: i.FirstName, LastName: i.LastName, Email: i.Email, Username: i.Username}
 		for _, c := range i.CustomFields {
 			if c.Name == "alphacrucisid" {
 				p.AlphacrucisId = c.Value
@@ -131,7 +205,7 @@ func (m *MoodleApi) ResetPassword(moodleId int64, password string) error {
 }
 
 // Fetch moodle account matching by email address.
-func (m *MoodleApi) GetPersonByEmail(email string) (*psc.Person, error) {
+func (m *MoodleApi) GetPersonByEmail(email string) (*Person, error) {
 	url := fmt.Sprintf("%swebservice/rest/server.php?wstoken=%s&wsfunction=%s&moodlewsrestformat=json&field=email&values[0]=%s", m.base, m.token, "core_user_get_users_by_field",
 		url.QueryEscape(email))
 	body, err := GetUrl(url)
@@ -163,9 +237,9 @@ func (m *MoodleApi) GetPersonByEmail(email string) (*psc.Person, error) {
 		return nil, err
 	}
 
-	people := make([]psc.Person, 0, len(results))
+	people := make([]Person, 0, len(results))
 	for _, i := range results {
-		p := psc.Person{MoodleId: i.Id, FirstName: i.FirstName, LastName: i.LastName, Email: i.Email, Username: i.Username}
+		p := Person{MoodleId: i.Id, FirstName: i.FirstName, LastName: i.LastName, Email: i.Email, Username: i.Username}
 		for _, c := range i.CustomFields {
 			if c.Name == "alphacrucisid" {
 				p.AlphacrucisId = c.Value
@@ -399,7 +473,7 @@ func (m *MoodleApi) WritingResetPasswordWithEmail(email string) error {
 }
 
 // Fetch moodle accounts that match match by first and last name.
-func (m *MoodleApi) GetPeopleByFirstNameLastName(firstname, lastname string) (*[]psc.Person, error) {
+func (m *MoodleApi) GetPeopleByFirstNameLastName(firstname, lastname string) (*[]Person, error) {
 	url := fmt.Sprintf("%swebservice/rest/server.php?wstoken=%s&wsfunction=%s&moodlewsrestformat=json&criteria[0][key]=firstname&criteria[0][value]=%s&criteria[0][key]=lastname&criteria[0][value]=%s", m.base, m.token, "core_user_get_users",
 		url.QueryEscape(firstname),
 		url.QueryEscape(lastname))
@@ -435,11 +509,11 @@ func (m *MoodleApi) GetPeopleByFirstNameLastName(firstname, lastname string) (*[
 		return nil, err
 	}
 
-	people := make([]psc.Person, 0, len(results.People))
+	people := make([]Person, 0, len(results.People))
 	for _, i := range results.People {
 		if strings.ToLower(i.FirstName) == strings.ToLower(firstname) &&
 			strings.ToLower(i.LastName) == strings.ToLower(lastname) {
-			people = append(people, psc.Person{MoodleId: i.Id, FirstName: i.FirstName, LastName: i.LastName, Email: i.Email, Username: i.Username})
+			people = append(people, Person{MoodleId: i.Id, FirstName: i.FirstName, LastName: i.LastName, Email: i.Email, Username: i.Username})
 		}
 	}
 
@@ -447,7 +521,7 @@ func (m *MoodleApi) GetPeopleByFirstNameLastName(firstname, lastname string) (*[
 }
 
 // Fetch moodle accounts that have a specific field. For example: api.GetPersonByAttribute("firstname", "James")
-func (m *MoodleApi) GetPeopleByAttribute(attribute, value string) (*[]psc.Person, error) {
+func (m *MoodleApi) GetPeopleByAttribute(attribute, value string) (*[]Person, error) {
 	url := fmt.Sprintf("%swebservice/rest/server.php?wstoken=%s&wsfunction=%s&moodlewsrestformat=json&criteria[0][key]=%s&criteria[0][value]=%s", m.base, m.token, "core_user_get_users",
 		url.QueryEscape(attribute),
 		url.QueryEscape(value))
@@ -484,9 +558,9 @@ func (m *MoodleApi) GetPeopleByAttribute(attribute, value string) (*[]psc.Person
 		return nil, err
 	}
 
-	people := make([]psc.Person, 0, len(results.People))
+	people := make([]Person, 0, len(results.People))
 	for _, i := range results.People {
-		p := psc.Person{MoodleId: i.Id, FirstName: i.FirstName, LastName: i.LastName, Email: i.Email, Username: i.Username}
+		p := Person{MoodleId: i.Id, FirstName: i.FirstName, LastName: i.LastName, Email: i.Email, Username: i.Username}
 		for _, c := range i.CustomFields {
 			if c.Name == "alphacrucisid" {
 				p.AlphacrucisId = c.Value
@@ -703,7 +777,7 @@ func (m *MoodleApi) GetCourseRoles(courseId int64) (*[]CoursePerson, error) {
 	return &results, nil
 }
 
-func (m *MoodleApi) GetCourses(value string) (*[]psc.Course, error) {
+func (m *MoodleApi) GetCourses(value string) (*[]Course, error) {
 	url := fmt.Sprintf("%swebservice/rest/server.php?wstoken=%s&wsfunction=%s&moodlewsrestformat=json&criterianame=search&criteriavalue=%s", m.base, m.token, "core_course_search_courses", value)
 	body, err := GetUrl(url)
 
@@ -733,11 +807,11 @@ func (m *MoodleApi) GetCourses(value string) (*[]psc.Course, error) {
 		return nil, err
 	}
 
-	subjects := make([]psc.Course, 0, len(results.Courses))
+	subjects := make([]Course, 0, len(results.Courses))
 	for _, i := range results.Courses {
-		subjects = append(subjects, psc.Course{MoodleId: i.Id, Code: i.Code, Name: i.Name})
+		subjects = append(subjects, Course{MoodleId: i.Id, Code: i.Code, Name: i.Name})
 	}
-	sort.Sort(psc.ByCourseCode(subjects))
+	sort.Sort(ByCourseCode(subjects))
 
 	return &subjects, nil
 }
