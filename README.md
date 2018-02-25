@@ -10,6 +10,17 @@ Basic Golang API for interacting with Moodle.
 			fmt.Printf("%s\n", i.Code)
 		}
 	}
+	
+	people, err := api.GetPeopleByAttribute("email", "%")
+	if err != nil {
+		l.Error("%v", err)
+		return
+	}
+	fmt.Println("People:")
+	for _, p := range *people {
+		// Do something
+	}
+
 
 This is a simple Moodle API that wraps the Moodle JSON Web Service API. It was created
 in a hurry to meet the needs of an existing project and is used in production. It will

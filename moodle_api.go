@@ -14,8 +14,6 @@ import (
 	"sort"
 	"strings"
 	"time"
-
-	"git.tai.io/jacob/log"
 )
 
 // API Documentation
@@ -24,7 +22,6 @@ import (
 type MoodleApi struct {
 	base  string
 	token string
-	log   log.Log
 
 	smtpUser      string
 	smtpPassword  string
@@ -34,11 +31,10 @@ type MoodleApi struct {
 	smtpFromEmail string
 }
 
-func NewMoodleApi(base string, token string, l log.Log) *MoodleApi {
+func NewMoodleApi(base string, token string) *MoodleApi {
 	return &MoodleApi{
 		base:  base,
 		token: token,
-		log:   l,
 	}
 }
 
@@ -126,6 +122,29 @@ func (a ByCourseCode) Less(i, j int) bool {
 	return a[i].Code < a[j].Code
 }
 
+func readError(body string) string {
+	if !strings.HasPrefix(body, "{\"exception\":\"") || strings.Index(body, "\"message\":\"") > 0 {
+		return ""
+	}
+
+	type Response struct {
+		Message   string `json:"message"`
+		Exception string `json:"exception"`
+		ErrorCode string `json:"errorcode"`
+		DebugInfo string `json:"debuginfo"`
+	}
+	var response Response
+	if err := json.Unmarshal([]byte(body), &response); err != nil {
+		return ""
+	}
+
+	if response.Message != "" {
+		return response.Message
+	}
+	return response.Exception
+
+}
+
 // Get Moodle Account details matching by username
 func (m *MoodleApi) GetPersonByUsername(username string) (*Person, error) {
 	url := fmt.Sprintf("%swebservice/rest/server.php?wstoken=%s&wsfunction=%s&moodlewsrestformat=json&field=username&values[0]=%s", m.base, m.token, "core_user_get_users_by_field",
@@ -133,13 +152,12 @@ func (m *MoodleApi) GetPersonByUsername(username string) (*Person, error) {
 	body, err := GetUrl(url)
 
 	if err != nil {
-		m.log.Error("GetPersonByUsername() failed: %v", err)
-		m.log.Error("GetPersonByUsername() url: %s", url)
 		return nil, err
 	}
 
 	if strings.HasPrefix(body, "{\"exception\":\"") {
-		return nil, errors.New(body)
+		message := readError(body)
+		return nil, errors.New(message + ". " + url)
 	}
 
 	type Result struct {
@@ -154,9 +172,7 @@ func (m *MoodleApi) GetPersonByUsername(username string) (*Person, error) {
 	var results []Result
 
 	if err := json.Unmarshal([]byte(body), &results); err != nil {
-		fmt.Println(body)
-		m.log.Error("GetPersonByUsername() failed parsing response: %v", err)
-		return nil, err
+		return nil, errors.New("Server returned unexpected response. " + err.Error())
 	}
 
 	people := make([]Person, 0, len(results))
@@ -190,16 +206,17 @@ func (m *MoodleApi) ResetPassword(moodleId int64, password string) error {
 	body, err := GetUrl(url)
 
 	if err != nil {
-		m.log.Error("ResetPassword() failed: %v", err)
-		m.log.Error("ResetPassword() url: %s", url)
 		return err
 	}
 
 	if strings.HasPrefix(body, "{\"exception\":\"") {
-		return errors.New(body)
+		message := readError(body)
+		return errors.New(message + ". " + url)
 	}
 
-	m.log.Debug("Reset Password response: %s", body)
+	if strings.TrimSpace(body) != "" {
+		return errors.New("Server returned unexpected response: " + body)
+	}
 
 	return nil
 }
@@ -211,13 +228,12 @@ func (m *MoodleApi) GetPersonByEmail(email string) (*Person, error) {
 	body, err := GetUrl(url)
 
 	if err != nil {
-		m.log.Error("GetPersonByEmail() failed: %v", err)
-		m.log.Error("GetPersonByEmail() url: %s", url)
 		return nil, err
 	}
 
 	if strings.HasPrefix(body, "{\"exception\":\"") {
-		return nil, errors.New(body)
+		message := readError(body)
+		return nil, errors.New(message + ". " + url)
 	}
 
 	type Result struct {
@@ -232,9 +248,7 @@ func (m *MoodleApi) GetPersonByEmail(email string) (*Person, error) {
 	var results []Result
 
 	if err := json.Unmarshal([]byte(body), &results); err != nil {
-		fmt.Println(body)
-		m.log.Error("GetPersonByEmail() failed parsing: %v", err)
-		return nil, err
+		return nil, errors.New("Server returned unexpected response. " + err.Error())
 	}
 
 	people := make([]Person, 0, len(results))
@@ -268,7 +282,6 @@ func (m *MoodleApi) ResetPasswordWithEmail(email string) error {
 		return err
 	}
 	if p == nil {
-		m.log.Debug("ResetPasswordWithEmail() failed. No user with email: %s", email)
 		return errors.New("Email address not found in moodle")
 	}
 
@@ -374,7 +387,6 @@ func (m *MoodleApi) WritingResetPasswordWithEmail(email string) error {
 		return err
 	}
 	if p == nil {
-		m.log.Debug("ResetPasswordWithEmail() failed. No user with email: %s", email)
 		return errors.New("Email address not found in moodle")
 	}
 
@@ -480,13 +492,12 @@ func (m *MoodleApi) GetPeopleByFirstNameLastName(firstname, lastname string) (*[
 	body, err := GetUrl(url)
 
 	if err != nil {
-		m.log.Error("GetPeopleByFirstNameLastName() failed fetching url: %v", err)
-		m.log.Debug("GetPeopleByFirstNameLastName() url: %s", url)
 		return nil, err
 	}
 
 	if strings.HasPrefix(body, "{\"exception\":\"") {
-		return nil, errors.New(body)
+		message := readError(body)
+		return nil, errors.New(message + ". " + url)
 	}
 
 	type Result struct {
@@ -505,8 +516,7 @@ func (m *MoodleApi) GetPeopleByFirstNameLastName(firstname, lastname string) (*[
 	var results Results
 
 	if err := json.Unmarshal([]byte(body), &results); err != nil {
-		fmt.Println(body)
-		return nil, err
+		return nil, errors.New("Server returned unexpected response. " + err.Error())
 	}
 
 	people := make([]Person, 0, len(results.People))
@@ -529,13 +539,12 @@ func (m *MoodleApi) GetPeopleByAttribute(attribute, value string) (*[]Person, er
 
 	//fmt.Println(url)
 	if err != nil {
-		m.log.Error("GetPeopleByAttribute() failed fetching url: %v", err)
-		m.log.Debug("GetPeopleByAttribute() url: %s", url)
 		return nil, err
 	}
 
 	if strings.HasPrefix(body, "{\"exception\":\"") {
-		return nil, errors.New(body)
+		message := readError(body)
+		return nil, errors.New(message + ". " + url)
 	}
 
 	type Result struct {
@@ -554,8 +563,7 @@ func (m *MoodleApi) GetPeopleByAttribute(attribute, value string) (*[]Person, er
 	var results Results
 
 	if err := json.Unmarshal([]byte(body), &results); err != nil {
-		fmt.Println(body)
-		return nil, err
+		return nil, errors.New("Server returned unexpected response. " + err.Error())
 	}
 
 	people := make([]Person, 0, len(results.People))
@@ -578,16 +586,14 @@ func (m *MoodleApi) GetPeopleByAttribute(attribute, value string) (*[]Person, er
 func (m *MoodleApi) SetRole(personId int64, roleId int64, courseId int64) error {
 	url := fmt.Sprintf("%swebservice/rest/server.php?wstoken=%s&wsfunction=%s&moodlewsrestformat=json&enrolments[0][roleid]=%d&enrolments[0][userid]=%d&enrolments[0][courseid]=%d", m.base, m.token, "enrol_manual_enrol_users", roleId, personId, courseId)
 
-	m.log.Debug("SetRole() url: %s", url)
 	body, err := GetUrl(url)
 	if err != nil {
-		m.log.Error("SetRole() http request failed: %v", err)
-		m.log.Debug("SetRole() url: %s", url)
 		return err
 	}
 
 	if strings.HasPrefix(body, "{\"exception\":\"") {
-		return errors.New(body)
+		message := readError(body)
+		return errors.New(message + ". " + url)
 	}
 
 	return nil
@@ -600,16 +606,17 @@ func (m *MoodleApi) SetUserAttribute(personId int64, attribute, value string) er
 	)
 
 	body, err := GetUrl(url)
-	//m.log.Debug("SetUserAttribute() url: %s", url)
-
 	if err != nil {
-		m.log.Error("SetUserAttribute() http request failed: %v", err)
-		m.log.Debug("SetUserAttribute() url: %s", url)
 		return err
 	}
 
 	if strings.HasPrefix(body, "{\"exception\":\"") {
-		return errors.New(body)
+		message := readError(body)
+		return errors.New(message + ". " + url)
+	}
+
+	if strings.TrimSpace(body) != "" {
+		return errors.New("Server returned unexpected response: " + body)
 	}
 
 	return nil
@@ -622,16 +629,18 @@ func (m *MoodleApi) SetUserCustomField(personId int64, attribute, value string) 
 	)
 
 	body, err := GetUrl(url)
-	//m.log.Debug("SetUserCustomField() url: %s", url)
 
 	if err != nil {
-		m.log.Error("SetUserCustomField() http request failed: %v", err)
-		m.log.Debug("SetUserCustomField() url: %s", url)
 		return err
 	}
 
 	if strings.HasPrefix(body, "{\"exception\":\"") {
-		return errors.New(body)
+		message := readError(body)
+		return errors.New(message + ". " + url)
+	}
+
+	if strings.TrimSpace(body) != "" {
+		return errors.New("Server returned unexpected response: " + body)
 	}
 
 	return nil
@@ -642,13 +651,12 @@ func (m *MoodleApi) AddPersonToCourseGroup(personId int64, groupId int64) error 
 
 	body, err := GetUrl(url)
 	if err != nil {
-		m.log.Error("SetRoleGroup() http request failed: %v", err)
-		m.log.Debug("SetRoleGroup() url: %s", url)
 		return err
 	}
 
 	if strings.HasPrefix(body, "{\"exception\":\"") {
-		return errors.New(body)
+		message := readError(body)
+		return errors.New(message + ". " + url)
 	}
 
 	type SiteInfo struct {
@@ -661,8 +669,11 @@ func (m *MoodleApi) AddPersonToCourseGroup(personId int64, groupId int64) error 
 	var data map[string]interface{}
 
 	if err := json.Unmarshal([]byte(body), &data); err != nil {
-		fmt.Println(body)
-		return err
+		return errors.New("Server returned unexpected response. " + err.Error())
+	}
+
+	if strings.TrimSpace(body) != "" {
+		return errors.New("Server returned unexpected response: " + body)
 	}
 
 	return nil
@@ -682,13 +693,12 @@ func (m *MoodleApi) AddUser(firstName, lastName, email, username string) error {
 	body, err := GetUrl(url)
 	fmt.Println(body)
 	if err != nil {
-		//fmt.Println(url)
-		m.log.Error("%v", err)
 		return err
 	}
 
 	if strings.HasPrefix(body, "{\"exception\":\"") {
-		return errors.New(body)
+		message := readError(body)
+		return errors.New(message + ". " + url)
 	}
 
 	type SiteInfo struct {
@@ -701,7 +711,7 @@ func (m *MoodleApi) AddUser(firstName, lastName, email, username string) error {
 	var data map[string]interface{}
 
 	if err := json.Unmarshal([]byte(body), &data); err != nil {
-		return err
+		return errors.New("Server returned unexpected response. " + err.Error())
 	}
 
 	return nil
@@ -718,19 +728,18 @@ func (m *MoodleApi) GetCourseGroups(courseId int64) (*[]CourseGroup, error) {
 	body, err := GetUrl(url)
 
 	if err != nil {
-		m.log.Error("GetCourseGroups failed fetching URL: %v", err)
 		return nil, err
 	}
 
 	if strings.HasPrefix(body, "{\"exception\":\"") {
-		return nil, errors.New(body)
+		message := readError(body)
+		return nil, errors.New(message + ". " + url)
 	}
 
 	var results []CourseGroup
 
 	if err := json.Unmarshal([]byte(body), &results); err != nil {
-		fmt.Println(body)
-		return nil, err
+		return nil, errors.New("Server returned unexpected response. " + err.Error())
 	}
 
 	return &results, nil
@@ -758,8 +767,6 @@ func (m *MoodleApi) GetCourseRoles(courseId int64) (*[]CoursePerson, error) {
 	body, err := GetUrl(url)
 
 	if err != nil {
-		m.log.Error("GetCourseRoles() failed: %v", err)
-		m.log.Error("GetCourseRoles() url: %s", url)
 		return nil, err
 	}
 
@@ -770,8 +777,7 @@ func (m *MoodleApi) GetCourseRoles(courseId int64) (*[]CoursePerson, error) {
 	var results []CoursePerson
 
 	if err := json.Unmarshal([]byte(body), &results); err != nil {
-		fmt.Println(body)
-		return nil, err
+		return nil, errors.New("Server returned unexpected response. " + err.Error())
 	}
 
 	return &results, nil
@@ -782,7 +788,6 @@ func (m *MoodleApi) GetCourses(value string) (*[]Course, error) {
 	body, err := GetUrl(url)
 
 	if err != nil {
-		m.log.Error("%v", err)
 		return nil, err
 	}
 
@@ -803,8 +808,7 @@ func (m *MoodleApi) GetCourses(value string) (*[]Course, error) {
 	var results Results
 
 	if err := json.Unmarshal([]byte(body), &results); err != nil {
-		fmt.Println(body)
-		return nil, err
+		return nil, errors.New("Server returned unexpected response. " + err.Error())
 	}
 
 	subjects := make([]Course, 0, len(results.Courses))
@@ -822,7 +826,6 @@ func (m *MoodleApi) GetSiteInfo() (string, string, string, int64, error) {
 	body, err := GetUrl(url)
 
 	if err != nil {
-		m.log.Error("%v", err)
 		return "", "", "", 0, err
 	}
 
@@ -840,8 +843,7 @@ func (m *MoodleApi) GetSiteInfo() (string, string, string, int64, error) {
 	var data map[string]interface{}
 
 	if err := json.Unmarshal([]byte(body), &data); err != nil {
-		fmt.Println(body)
-		return "", "", "", 0, err
+		return "", "", "", 0, errors.New("Server returned unexpected response. " + err.Error())
 	}
 
 	return data["sitename"].(string), data["firstname"].(string), data["lastname"].(string), int64(data["userid"].(float64)), nil
