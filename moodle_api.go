@@ -48,12 +48,12 @@ func (m *MoodleApi) SetSmtpSettings(host string, port int, user, password string
 }
 
 type Course struct {
-	Code        string        `json:",omitempty"`
-	Name        string        `json:",omitempty"`
+	MoodleId    int64         `json:"id,omitempty"`
+	Code        string        `json:"shortname,omitempty"`
+	Name        string        `json:"fullname,omitempty"`
 	Summary     string        `json:",omitempty"`
 	Assignments []*Assignment `json:",omitempty"`
 	Roles       []*Role       `json:",omitempty"`
-	MoodleId    int64         `json:"-"`
 	Created     *time.Time    `json:"-"`
 	Start       *time.Time    `json:",omitempty"`
 	End         *time.Time    `json:",omitempty"`
@@ -123,7 +123,7 @@ func (a ByCourseCode) Less(i, j int) bool {
 }
 
 func readError(body string) string {
-	if !strings.HasPrefix(body, "{\"exception\":\"") || strings.Index(body, "\"message\":\"") > 0 {
+	if !strings.HasPrefix(body, "{\"exception\":\"") || strings.Index(body, "\"message\":\"") < 0 {
 		return ""
 	}
 
@@ -145,7 +145,7 @@ func readError(body string) string {
 
 }
 
-// Get Moodle Account details matching by username
+// Get Moodle Account details matching by username. Returns nil if not found. Returns error if multiple matches are found.
 func (m *MoodleApi) GetPersonByUsername(username string) (*Person, error) {
 	url := fmt.Sprintf("%swebservice/rest/server.php?wstoken=%s&wsfunction=%s&moodlewsrestformat=json&field=username&values[0]=%s", m.base, m.token, "core_user_get_users_by_field",
 		url.QueryEscape(username))
@@ -157,7 +157,7 @@ func (m *MoodleApi) GetPersonByUsername(username string) (*Person, error) {
 
 	if strings.HasPrefix(body, "{\"exception\":\"") {
 		message := readError(body)
-		return nil, errors.New(message + ". " + url)
+		return nil, errors.New(message)
 	}
 
 	type Result struct {
@@ -537,7 +537,6 @@ func (m *MoodleApi) GetPeopleByAttribute(attribute, value string) (*[]Person, er
 		url.QueryEscape(value))
 	body, err := GetUrl(url)
 
-	//fmt.Println(url)
 	if err != nil {
 		return nil, err
 	}
@@ -721,6 +720,28 @@ type CourseGroup struct {
 	Id        int64  `json:"id"`
 	Name      string `json:"name"`
 	ShortName string `json:"shortname"`
+}
+
+func (m *MoodleApi) GetPersonCourseList(userId int64) (*[]Course, error) {
+	url := fmt.Sprintf("%swebservice/rest/server.php?wstoken=%s&wsfunction=%s&moodlewsrestformat=json&userid=%d", m.base, m.token, "core_enrol_get_users_courses", userId)
+	body, err := GetUrl(url)
+
+	if err != nil {
+		return nil, err
+	}
+
+	if strings.HasPrefix(body, "{\"exception\":\"") {
+		message := readError(body)
+		return nil, errors.New(message + ". " + url)
+	}
+
+	var results []Course
+
+	if err := json.Unmarshal([]byte(body), &results); err != nil {
+		return nil, errors.New("Server returned unexpected response. " + err.Error())
+	}
+
+	return &results, nil
 }
 
 func (m *MoodleApi) GetCourseGroups(courseId int64) (*[]CourseGroup, error) {
