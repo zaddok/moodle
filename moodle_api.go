@@ -214,7 +214,7 @@ func (m *MoodleApi) ResetPassword(moodleId int64, password string) error {
 		return errors.New(message + ". " + url)
 	}
 
-	if strings.TrimSpace(body) != "" {
+	if strings.TrimSpace(body) != "null" {
 		return errors.New("Server returned unexpected response: " + body)
 	}
 
@@ -285,10 +285,10 @@ func (m *MoodleApi) ResetPasswordWithEmail(email string) error {
 		return errors.New("Email address not found in moodle")
 	}
 
-	pwd := RandomString(4) + "-1" + RandomString(4)
+	pwd := RandomString(5) + "-1" + RandomString(6)
 	err = m.ResetPassword(p.MoodleId, pwd)
 	if err != nil {
-		return err
+		return errors.New("Password Reset failed. " + err.Error())
 	}
 
 	if m.smtpHost == "" || m.smtpPort == 0 {
@@ -778,9 +778,27 @@ type CoursePerson struct {
 	FirstName    string        `json:"firstname"`
 	LastName     string        `json:"lastname"`
 	Email        string        `json:"email"`
+	LastAccess   int64         `json:"lastaccess"`
+	FirstAccess  int64         `json:"firstaccess"`
 	Groups       []CourseGroup `json:"groups"`
 	Roles        []CourseGroup `json:"roles"`
 	CustomFields []CustomField `json:"customfields"`
+}
+
+func (cp *CoursePerson) FirstAccessTime() *time.Time {
+	if cp.FirstAccess == 0 {
+		return nil
+	}
+	t := time.Unix(cp.FirstAccess, 0)
+	return &t
+}
+
+func (cp *CoursePerson) LastAccessTime() *time.Time {
+	if cp.LastAccess == 0 {
+		return nil
+	}
+	t := time.Unix(cp.LastAccess, 0)
+	return &t
 }
 
 func (m *MoodleApi) GetCourseRoles(courseId int64) (*[]CoursePerson, error) {
@@ -907,10 +925,135 @@ func GetUrl(url string) (string, error) {
 	return string(body), err
 }
 
+type AssignmentInfo struct {
+	Id         int64      `json:"id"`
+	CmId       int64      `json:"cmid"`
+	CourseId   int64      `json:"courseid"`
+	CourseCode string     `json:"coursecode"`
+	CourseName string     `json:"coursename"`
+	Name       string     `json:"name"`
+	DueDate    *time.Time `json:"duedate"`
+}
+
+func (m *MoodleApi) GetAssignments(courses *[]Course) (*[]*AssignmentInfo, error) {
+	url := fmt.Sprintf("%swebservice/rest/server.php?wstoken=%s&wsfunction=%s&moodlewsrestformat=json&includenotenrolledcourses=1", m.base, m.token, "mod_assign_get_assignments")
+	for i, c := range *courses {
+		url = fmt.Sprintf("%s&courseids%%5B%d%%5D=%d", url, i, c.MoodleId)
+	}
+	body, err := GetUrl(url)
+
+	if err != nil {
+		return nil, err
+	}
+
+	if strings.HasPrefix(body, "{\"exception\":\"") {
+		return nil, errors.New(body)
+	}
+
+	type AssignInfo struct {
+		Id      int64  `json:"id"`
+		CmId    int64  `json:"cmid"`
+		Name    string `json:"name"`
+		DueDate int64  `json:"duedate"`
+		//NoSubmissions bool   `json:"nosubmissions"`
+	}
+
+	type CourseAssign struct {
+		Id          int64        `json:"id"`
+		Code        string       `json:"shortname"`
+		Name        string       `json:"fullname"`
+		Assignments []AssignInfo `json:"assignments"`
+	}
+
+	type Result struct {
+		Courses []CourseAssign `json:"courses"`
+	}
+
+	var results Result
+
+	if err := json.Unmarshal([]byte(body), &results); err != nil {
+		return nil, errors.New("Server returned unexpected response. " + err.Error())
+	}
+
+	assignments := make([]*AssignmentInfo, 0)
+	for _, c := range results.Courses {
+		for _, a := range c.Assignments {
+			var t *time.Time
+			if a.DueDate != 0 {
+				tt := time.Unix(a.DueDate, 0)
+				t = &tt
+			}
+			ai := &AssignmentInfo{Id: a.Id, CmId: a.CmId, Name: a.Name, CourseCode: c.Code, CourseName: c.Name, CourseId: c.Id, DueDate: t}
+			fmt.Printf(" --- %s, %v, %s\n", ai.CourseCode, ai.DueDate, ai.Name)
+			assignments = append(assignments, ai)
+		}
+	}
+
+	return &assignments, nil
+}
+
+type AssignmentSubmission struct {
+	Id            int64  `json:"id"`
+	SubmissionId  int64  `json:"submissionid"`
+	UserId        int64  `json:"userid"`
+	Status        string `json:"status"`
+	GradingStatus string `json:"gradingstatus"`
+}
+
+func (m *MoodleApi) GetAssignmentSubmissions(assignmentId int64) (*[]AssignmentSubmission, error) {
+	url := fmt.Sprintf("%swebservice/rest/server.php?wstoken=%s&wsfunction=%s&moodlewsrestformat=json&assignmentids[0]=%d", m.base, m.token, "mod_assign_get_submissions", assignmentId)
+	body, err := GetUrl(url)
+
+	if err != nil {
+		return nil, err
+	}
+
+	if strings.HasPrefix(body, "{\"exception\":\"") {
+		return nil, errors.New(body)
+	}
+
+	type Plugin struct {
+		Type string `json:"type"`
+		Name string `json:"name"`
+	}
+
+	type AssignSub struct {
+		Id            int64    `json:"id"`
+		UserId        int64    `json:"userid"`
+		Status        string   `json:"status"`
+		GradingStatus string   `json:"gradingstatus"`
+		Plugins       []Plugin `json:"plugins"`
+	}
+
+	type Assign struct {
+		Id          int64       `json:"assignmentid"`
+		Submissions []AssignSub `json:"submissions"`
+	}
+
+	type Result struct {
+		Assignments []Assign `json:"assignments"`
+	}
+
+	var results Result
+
+	if err := json.Unmarshal([]byte(body), &results); err != nil {
+		return nil, errors.New("Server returned unexpected response. " + err.Error())
+	}
+
+	assignments := make([]AssignmentSubmission, 0)
+	for _, k := range results.Assignments {
+		for _, i := range k.Submissions {
+			assignments = append(assignments, AssignmentSubmission{Id: k.Id, SubmissionId: i.Id, UserId: i.UserId, Status: i.Status, GradingStatus: i.GradingStatus})
+			//fmt.Println(i)
+		}
+	}
+
+	return &assignments, nil
+}
+
 func GetAttendance() error {
 
 	// Get attendance for a session
-	//https://learn.example.com/moodle/webservice/rest/server.php?wstoken=dd84ebafa3679c30bd65b9104a5f0f37&wsfunction=mod_wsattendance_get_session&moodlewsrestformat=json&sessionid=116
 
 	// But how to we know which sessions to look at?
 
