@@ -1,3 +1,4 @@
+// API for querying and updating a moodle server
 package moodle
 
 import (
@@ -199,7 +200,7 @@ func (m *MoodleApi) GetPersonByUsername(username string) (*Person, error) {
 	return nil, errors.New("Multiple moodle accounts match this username")
 }
 
-// Get Moodle Account details matching by moodle id. Returns nil if not found. Returns error if multiple matches are found.
+// Get Moodle Account details matching by moodle id. Returns nil if not found.
 func (m *MoodleApi) GetPersonByMoodleId(id int64) (*Person, error) {
 	url := fmt.Sprintf("%swebservice/rest/server.php?wstoken=%s&wsfunction=%s&moodlewsrestformat=json&field=id&values[0]=%d", m.base, m.token, "core_user_get_users_by_field",
 		id)
@@ -275,7 +276,7 @@ func (m *MoodleApi) ResetPassword(moodleId int64, password string) error {
 	return nil
 }
 
-// Fetch moodle account matching by email address.
+// Get moodle account matching by email address.
 func (m *MoodleApi) GetPersonByEmail(email string) (*Person, error) {
 	url := fmt.Sprintf("%swebservice/rest/server.php?wstoken=%s&wsfunction=%s&moodlewsrestformat=json&field=email&values[0]=%s", m.base, m.token, "core_user_get_users_by_field",
 		url.QueryEscape(email))
