@@ -199,6 +199,60 @@ func (m *MoodleApi) GetPersonByUsername(username string) (*Person, error) {
 	return nil, errors.New("Multiple moodle accounts match this username")
 }
 
+// Get Moodle Account details matching by moodle id. Returns nil if not found. Returns error if multiple matches are found.
+func (m *MoodleApi) GetPersonByMoodleId(id int64) (*Person, error) {
+	url := fmt.Sprintf("%swebservice/rest/server.php?wstoken=%s&wsfunction=%s&moodlewsrestformat=json&field=id&values[0]=%d", m.base, m.token, "core_user_get_users_by_field",
+		id)
+	body, err := GetUrl(url)
+
+	if err != nil {
+		return nil, err
+	}
+
+	if strings.HasPrefix(body, "{\"exception\":\"") {
+		message := readError(body)
+		return nil, errors.New(message)
+	}
+
+	type Result struct {
+		Id           int64         `json:"id"`
+		FirstName    string        `json:"firstname"`
+		LastName     string        `json:"lastname"`
+		Email        string        `json:"email"`
+		Username     string        `json:"username"`
+		CustomFields []CustomField `json:"customfields"`
+	}
+
+	var results []Result
+
+	if err := json.Unmarshal([]byte(body), &results); err != nil {
+		return nil, errors.New("Server returned unexpected response. " + err.Error())
+	}
+
+	people := make([]Person, 0, len(results))
+	for _, i := range results {
+		p := Person{MoodleId: i.Id, FirstName: i.FirstName, LastName: i.LastName, Email: i.Email, Username: i.Username}
+		for _, c := range i.CustomFields {
+			if c.Name == "alphacrucisid" {
+				p.AlphacrucisId = c.Value
+			}
+			if c.Name == "personalemail" {
+				p.PersonalEmail = c.Value
+			}
+		}
+		people = append(people, p)
+	}
+
+	if len(people) == 0 {
+		return nil, nil
+	}
+	if len(people) == 1 {
+		return &people[0], nil
+	}
+
+	return nil, errors.New("Multiple moodle accounts match this username")
+}
+
 // Set the password for a moodle account. Password must match moodle password policy.
 func (m *MoodleApi) ResetPassword(moodleId int64, password string) error {
 	url := fmt.Sprintf("%swebservice/rest/server.php?wstoken=%s&wsfunction=%s&moodlewsrestformat=json&users[0][id]=%d&users[0][password]=%s", m.base, m.token, "core_user_update_users", moodleId,
@@ -984,7 +1038,6 @@ func (m *MoodleApi) GetAssignments(courses *[]Course) (*[]*AssignmentInfo, error
 				t = &tt
 			}
 			ai := &AssignmentInfo{Id: a.Id, CmId: a.CmId, Name: a.Name, CourseCode: c.Code, CourseName: c.Name, CourseId: c.Id, DueDate: t}
-			fmt.Printf(" --- %s, %v, %s\n", ai.CourseCode, ai.DueDate, ai.Name)
 			assignments = append(assignments, ai)
 		}
 	}
