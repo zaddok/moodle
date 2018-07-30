@@ -1,4 +1,26 @@
 // API for querying and updating a moodle server
+//
+//        api := moodle.NewMoodleApi("https://moodle.example.com/moodle/", "a0092ba9a9f5b45cdd2f01d049595bfe91", l)
+//
+//        // Search moodle courses
+//        courses, _ := api.GetCourses("History")
+//        if courses != nil {
+//                for _, i := range *courses {
+//                        fmt.Printf("%s\n", i.Code)
+//                }
+//        }
+//
+//        // Search users
+//        people, err := api.GetPeopleByAttribute("email", "%")
+//        if err != nil {
+//                l.Error("%v", err)
+//                return
+//        }
+//        fmt.Println("People:")
+//        for _, p := range *people {
+//                // Do something
+//        }
+//
 package moodle
 
 import (
