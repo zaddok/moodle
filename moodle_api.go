@@ -636,6 +636,23 @@ func (m *MoodleApi) GetPeopleByAttribute(attribute, value string) (*[]Person, er
 	return &people, nil
 }
 
+// Moodle's bug causes role_id to be ignored: https://tracker.moodle.org/browse/MDL-51152
+func (m *MoodleApi) UnsetRole(personId int64, roleId int64, courseId int64) error {
+	url := fmt.Sprintf("%swebservice/rest/server.php?wstoken=%s&wsfunction=%s&moodlewsrestformat=json&enrolments[0][roleid]=%d&enrolments[0][userid]=%d&enrolments[0][courseid]=%d", m.base, m.token, "enrol_manual_unenrol_users", roleId, personId, courseId)
+
+	body, err := GetUrl(url)
+	if err != nil {
+		return err
+	}
+
+	if strings.HasPrefix(body, "{\"exception\":\"") {
+		message := readError(body)
+		return errors.New(message + ". " + url)
+	}
+
+	return nil
+}
+
 func (m *MoodleApi) SetRole(personId int64, roleId int64, courseId int64) error {
 	url := fmt.Sprintf("%swebservice/rest/server.php?wstoken=%s&wsfunction=%s&moodlewsrestformat=json&enrolments[0][roleid]=%d&enrolments[0][userid]=%d&enrolments[0][courseid]=%d", m.base, m.token, "enrol_manual_enrol_users", roleId, personId, courseId)
 
@@ -963,10 +980,10 @@ func GetUrl(url string) (string, error) {
 	res, err := client.Get(url)
 	if err != nil {
 		if strings.Contains(err.Error(), "dial tcp: i/o timeout") {
-			return "", errors.New("Timout connecting to The Age API")
+			return "", errors.New("Timout connecting to server")
 		}
 		if strings.Contains(err.Error(), "use of closed network connection") {
-			return "", errors.New("Timout checking The Age")
+			return "", errors.New("Timout waiting for server")
 		}
 		return "", err
 	}
