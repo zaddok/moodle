@@ -895,6 +895,15 @@ func (cp *CoursePerson) LastAccessTime() *time.Time {
 	return &t
 }
 
+func (cp *CoursePerson) CustomField(name string) string {
+	for _, i := range cp.CustomFields {
+		if name == i.Name {
+			return i.Value
+		}
+	}
+	return ""
+}
+
 func (m *MoodleApi) GetCourseRoles(courseId int64) (*[]CoursePerson, error) {
 	url := fmt.Sprintf("%swebservice/rest/server.php?wstoken=%s&wsfunction=%s&moodlewsrestformat=json&courseid=%d", m.base, m.token, "core_enrol_get_enrolled_users", courseId)
 	body, err := GetUrl(url)
