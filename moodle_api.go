@@ -30,6 +30,7 @@ import (
 	"errors"
 	"fmt"
 	"io/ioutil"
+	"math/rand"
 	"net"
 	"net/http"
 	"net/smtp"
@@ -352,6 +353,16 @@ func (m *MoodleApi) GetPersonByEmail(email string) (*Person, error) {
 	return nil, errors.New("Multiple moodle accounts match this email address")
 }
 
+func RandomLetter() string {
+	bytes := make([]byte, 1)
+	bytes[0] = byte(65 + rand.Intn(90-65))
+	return string(bytes)
+}
+
+func RandomPassword() string {
+	return fmt.Sprintf("%s%s-%d%s%s", RandomString(4), RandomLetter(), rand.Intn(9), RandomString(4), strings.ToLower(RandomLetter()))
+}
+
 // Reset the password for a moodle account, and email the password to the user
 func (m *MoodleApi) ResetPasswordWithEmail(email string) error {
 	p, err := m.GetPersonByEmail(email)
@@ -362,7 +373,7 @@ func (m *MoodleApi) ResetPasswordWithEmail(email string) error {
 		return errors.New("Email address not found in moodle")
 	}
 
-	pwd := RandomString(5) + "-1" + RandomString(6)
+	pwd := RandomPassword()
 	err = m.ResetPassword(p.MoodleId, pwd)
 	if err != nil {
 		return errors.New("Password Reset failed. " + err.Error())
@@ -467,7 +478,7 @@ func (m *MoodleApi) WritingResetPasswordWithEmail(email string) error {
 		return errors.New("Email address not found in moodle")
 	}
 
-	pwd := RandomString(4) + "-1" + RandomString(4)
+	pwd := RandomPassword()
 	err = m.ResetPassword(p.MoodleId, pwd)
 	if err != nil {
 		return err
@@ -759,39 +770,45 @@ func (m *MoodleApi) AddPersonToCourseGroup(personId int64, groupId int64) error 
 		Userid    int64
 	}
 
-	var data map[string]interface{}
-
-	if err := json.Unmarshal([]byte(body), &data); err != nil {
-		return errors.New("Server returned unexpected response. " + err.Error())
-	}
-
-	if strings.TrimSpace(body) != "" {
-		return errors.New("Server returned unexpected response: " + body)
+	if strings.TrimSpace(body) != "null" {
+		return errors.New("Server returned unexpected response: " + body + "--" + url)
 	}
 
 	return nil
 }
 
-func (m *MoodleApi) AddUser(firstName, lastName, email, username string) error {
+func (m *MoodleApi) AddUser(firstName, lastName, email, username, password string) (int64, error) {
 
 	if strings.Index(email, "@") < 0 {
-		return errors.New("Invalid email address")
+		return 0, errors.New("Invalid email address")
 	}
-	url := fmt.Sprintf("%swebservice/rest/server.php?wstoken=%s&wsfunction=%s&moodlewsrestformat=json&users[0][firstname]=%s&users[0][lastname]=%s&users[0][email]=%s&users[0][username]=%s&users[0][createpassword]=1", m.base, m.token, "core_user_create_users",
-		url.QueryEscape(firstName),
-		url.QueryEscape(lastName),
-		url.QueryEscape(email),
-		url.QueryEscape(username))
 
-	body, err := GetUrl(url)
+	var l string
+	if password == "" {
+		l = fmt.Sprintf("%swebservice/rest/server.php?wstoken=%s&wsfunction=%s&moodlewsrestformat=json&users[0][firstname]=%s&users[0][lastname]=%s&users[0][email]=%s&users[0][username]=%s&users[0][createpassword]=1", m.base, m.token, "core_user_create_users",
+			url.QueryEscape(firstName),
+			url.QueryEscape(lastName),
+			url.QueryEscape(email),
+			url.QueryEscape(username))
+	} else {
+		l = fmt.Sprintf("%swebservice/rest/server.php?wstoken=%s&wsfunction=%s&moodlewsrestformat=json&users[0][firstname]=%s&users[0][lastname]=%s&users[0][email]=%s&users[0][username]=%s&users[0][password]=%s", m.base, m.token, "core_user_create_users",
+			url.QueryEscape(firstName),
+			url.QueryEscape(lastName),
+			url.QueryEscape(email),
+			url.QueryEscape(username),
+			url.QueryEscape(password))
+	}
+	//fmt.Println(l)
+
+	body, err := GetUrl(l)
 	fmt.Println(body)
 	if err != nil {
-		return err
+		return 0, err
 	}
 
 	if strings.HasPrefix(body, "{\"exception\":\"") {
 		message := readError(body)
-		return errors.New(message + ". " + url)
+		return 0, errors.New(message + ". " + l)
 	}
 
 	type SiteInfo struct {
@@ -801,13 +818,19 @@ func (m *MoodleApi) AddUser(firstName, lastName, email, username string) error {
 		Userid    int64
 	}
 
-	var data map[string]interface{}
+	var data []map[string]interface{}
 
 	if err := json.Unmarshal([]byte(body), &data); err != nil {
-		return errors.New("Server returned unexpected response. " + err.Error())
+		return 0, errors.New("Server returned unexpected response. " + err.Error())
+	}
+	if len(data) != 1 {
+		return 0, errors.New("Server returned unexpected response. " + err.Error())
+	}
+	if _, ok := data[0]["id"]; !ok {
+		return 0, errors.New("Server returned unexpected response. ID is missing. " + err.Error())
 	}
 
-	return nil
+	return int64(data[0]["id"].(float64)), nil
 }
 
 type CourseGroup struct {
