@@ -750,6 +750,33 @@ func (m *MoodleApi) SetUserCustomField(personId int64, attribute, value string) 
 	return nil
 }
 
+func (m *MoodleApi) RemovePersonFromCourseGroup(personId int64, groupId int64) error {
+	url := fmt.Sprintf("%swebservice/rest/server.php?wstoken=%s&wsfunction=%s&moodlewsrestformat=json&members[0][userid]=%d&members[0][groupid]=%d", m.base, m.token, "core_group_delete_group_members", personId, groupId)
+
+	body, err := GetUrl(url)
+	if err != nil {
+		return err
+	}
+
+	if strings.HasPrefix(body, "{\"exception\":\"") {
+		message := readError(body)
+		return errors.New(message + ". " + url)
+	}
+
+	type SiteInfo struct {
+		Sitename  string
+		Firstname string
+		Lastname  string
+		Userid    int64
+	}
+
+	if strings.TrimSpace(body) != "null" {
+		return errors.New("Server returned unexpected response: " + body + "--" + url)
+	}
+
+	return nil
+}
+
 func (m *MoodleApi) AddPersonToCourseGroup(personId int64, groupId int64) error {
 	url := fmt.Sprintf("%swebservice/rest/server.php?wstoken=%s&wsfunction=%s&moodlewsrestformat=json&members[0][userid]=%d&members[0][groupid]=%d", m.base, m.token, "core_group_add_group_members", personId, groupId)
 
@@ -861,6 +888,7 @@ func (m *MoodleApi) GetPersonCourseList(userId int64) (*[]Course, error) {
 	return &results, nil
 }
 
+// List the details of each group in a course. Fetches: id, name, and shortname
 func (m *MoodleApi) GetCourseGroups(courseId int64) (*[]CourseGroup, error) {
 	url := fmt.Sprintf("%swebservice/rest/server.php?wstoken=%s&wsfunction=%s&moodlewsrestformat=json&courseid=%d", m.base, m.token, "core_group_get_course_groups", courseId)
 	body, err := GetUrl(url)
@@ -927,6 +955,16 @@ func (cp *CoursePerson) CustomField(name string) string {
 	return ""
 }
 
+func (cp *CoursePerson) HasGroupNamed(name string) bool {
+	for _, i := range cp.Groups {
+		if name == i.Name {
+			return true
+		}
+	}
+	return false
+}
+
+// List all people in a course. Results include the persons roles and groups
 func (m *MoodleApi) GetCourseRoles(courseId int64) (*[]CoursePerson, error) {
 	url := fmt.Sprintf("%swebservice/rest/server.php?wstoken=%s&wsfunction=%s&moodlewsrestformat=json&courseid=%d", m.base, m.token, "core_enrol_get_enrolled_users", courseId)
 	body, err := GetUrl(url)
