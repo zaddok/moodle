@@ -997,6 +997,16 @@ func (cp *CoursePerson) HasGroupNamed(name string) bool {
 	return false
 }
 
+func (cp *CoursePerson) HasRoleNamed(name string) bool {
+	name = strings.ToLower(name)
+	for _, i := range cp.Roles {
+		if name == strings.ToLower(i.ShortName) {
+			return true
+		}
+	}
+	return false
+}
+
 // List all people in a course. Results include the persons roles and groups
 func (m *MoodleApi) GetCourseRoles(courseId int64) (*[]CoursePerson, error) {
 	url := fmt.Sprintf("%swebservice/rest/server.php?wstoken=%s&wsfunction=%s&moodlewsrestformat=json&courseid=%d", m.base, m.token, "core_enrol_get_enrolled_users", courseId)
