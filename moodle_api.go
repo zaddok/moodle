@@ -53,12 +53,15 @@ type MoodleApi struct {
 	smtpPort      int
 	smtpFromName  string
 	smtpFromEmail string
+
+	log MoodleLogger
 }
 
 func NewMoodleApi(base string, token string) *MoodleApi {
 	return &MoodleApi{
 		base:  base,
 		token: token,
+		log:   &NilMoodleLogger{},
 	}
 }
 
@@ -174,6 +177,7 @@ func (m *MoodleApi) GetPersonByUsername(username string) (*Person, error) {
 	url := fmt.Sprintf("%swebservice/rest/server.php?wstoken=%s&wsfunction=%s&moodlewsrestformat=json&field=username&values[0]=%s", m.base, m.token, "core_user_get_users_by_field",
 		url.QueryEscape(username))
 	body, err := GetUrl(url)
+	m.log.Debug("Fetch: %s", url)
 
 	if err != nil {
 		return nil, err
@@ -223,10 +227,26 @@ func (m *MoodleApi) GetPersonByUsername(username string) (*Person, error) {
 	return nil, errors.New("Multiple moodle accounts match this username")
 }
 
+type MoodleLogger interface {
+	Debug(message string, items ...interface{}) error
+}
+
+type NilMoodleLogger struct {
+}
+
+func (ml *NilMoodleLogger) Debug(message string, items ...interface{}) error {
+	return nil
+}
+
+func (m *MoodleApi) SetLogger(l MoodleLogger) {
+	m.log = l
+}
+
 // Get Moodle Account details matching by moodle id. Returns nil if not found.
 func (m *MoodleApi) GetPersonByMoodleId(id int64) (*Person, error) {
 	url := fmt.Sprintf("%swebservice/rest/server.php?wstoken=%s&wsfunction=%s&moodlewsrestformat=json&field=id&values[0]=%d", m.base, m.token, "core_user_get_users_by_field",
 		id)
+	m.log.Debug("Fetch: %s", url)
 	body, err := GetUrl(url)
 
 	if err != nil {
@@ -281,6 +301,7 @@ func (m *MoodleApi) GetPersonByMoodleId(id int64) (*Person, error) {
 func (m *MoodleApi) ResetPassword(moodleId int64, password string) error {
 	url := fmt.Sprintf("%swebservice/rest/server.php?wstoken=%s&wsfunction=%s&moodlewsrestformat=json&users[0][id]=%d&users[0][password]=%s", m.base, m.token, "core_user_update_users", moodleId,
 		url.QueryEscape(password))
+	m.log.Debug("Fetch: %s", url)
 	body, err := GetUrl(url)
 
 	if err != nil {
@@ -303,6 +324,7 @@ func (m *MoodleApi) ResetPassword(moodleId int64, password string) error {
 func (m *MoodleApi) GetPersonByEmail(email string) (*Person, error) {
 	url := fmt.Sprintf("%swebservice/rest/server.php?wstoken=%s&wsfunction=%s&moodlewsrestformat=json&field=email&values[0]=%s", m.base, m.token, "core_user_get_users_by_field",
 		url.QueryEscape(email))
+	m.log.Debug("Fetch: %s", url)
 	body, err := GetUrl(url)
 
 	if err != nil {
@@ -577,6 +599,7 @@ func (m *MoodleApi) GetPeopleByFirstNameLastName(firstname, lastname string) (*[
 	url := fmt.Sprintf("%swebservice/rest/server.php?wstoken=%s&wsfunction=%s&moodlewsrestformat=json&criteria[0][key]=firstname&criteria[0][value]=%s&criteria[0][key]=lastname&criteria[0][value]=%s", m.base, m.token, "core_user_get_users",
 		url.QueryEscape(firstname),
 		url.QueryEscape(lastname))
+	m.log.Debug("Fetch: %s", url)
 	body, err := GetUrl(url)
 
 	if err != nil {
@@ -623,6 +646,7 @@ func (m *MoodleApi) GetPeopleByAttribute(attribute, value string) (*[]Person, er
 	url := fmt.Sprintf("%swebservice/rest/server.php?wstoken=%s&wsfunction=%s&moodlewsrestformat=json&criteria[0][key]=%s&criteria[0][value]=%s", m.base, m.token, "core_user_get_users",
 		url.QueryEscape(attribute),
 		url.QueryEscape(value))
+	m.log.Debug("Fetch: %s", url)
 	body, err := GetUrl(url)
 
 	if err != nil {
@@ -673,6 +697,7 @@ func (m *MoodleApi) GetPeopleByAttribute(attribute, value string) (*[]Person, er
 // Moodle's bug causes role_id to be ignored: https://tracker.moodle.org/browse/MDL-51152
 func (m *MoodleApi) UnsetRole(personId int64, roleId int64, courseId int64) error {
 	url := fmt.Sprintf("%swebservice/rest/server.php?wstoken=%s&wsfunction=%s&moodlewsrestformat=json&enrolments[0][roleid]=%d&enrolments[0][userid]=%d&enrolments[0][courseid]=%d", m.base, m.token, "enrol_manual_unenrol_users", roleId, personId, courseId)
+	m.log.Debug("Fetch: %s", url)
 
 	body, err := GetUrl(url)
 	if err != nil {
@@ -689,6 +714,7 @@ func (m *MoodleApi) UnsetRole(personId int64, roleId int64, courseId int64) erro
 
 func (m *MoodleApi) SetRole(personId int64, roleId int64, courseId int64) error {
 	url := fmt.Sprintf("%swebservice/rest/server.php?wstoken=%s&wsfunction=%s&moodlewsrestformat=json&enrolments[0][roleid]=%d&enrolments[0][userid]=%d&enrolments[0][courseid]=%d", m.base, m.token, "enrol_manual_enrol_users", roleId, personId, courseId)
+	m.log.Debug("Fetch: %s", url)
 
 	body, err := GetUrl(url)
 	if err != nil {
@@ -708,6 +734,7 @@ func (m *MoodleApi) SetUserAttribute(personId int64, attribute, value string) er
 		url.QueryEscape(attribute),
 		url.QueryEscape(value),
 	)
+	m.log.Debug("Fetch: %s", url)
 
 	body, err := GetUrl(url)
 	if err != nil {
@@ -731,6 +758,7 @@ func (m *MoodleApi) SetUserCustomField(personId int64, attribute, value string) 
 		url.QueryEscape(attribute),
 		url.QueryEscape(value),
 	)
+	m.log.Debug("Fetch: %s", url)
 
 	body, err := GetUrl(url)
 
@@ -752,6 +780,7 @@ func (m *MoodleApi) SetUserCustomField(personId int64, attribute, value string) 
 
 func (m *MoodleApi) RemovePersonFromCourseGroup(personId int64, groupId int64) error {
 	url := fmt.Sprintf("%swebservice/rest/server.php?wstoken=%s&wsfunction=%s&moodlewsrestformat=json&members[0][userid]=%d&members[0][groupid]=%d", m.base, m.token, "core_group_delete_group_members", personId, groupId)
+	m.log.Debug("Fetch: %s", url)
 
 	body, err := GetUrl(url)
 	if err != nil {
@@ -779,6 +808,7 @@ func (m *MoodleApi) RemovePersonFromCourseGroup(personId int64, groupId int64) e
 
 func (m *MoodleApi) AddPersonToCourseGroup(personId int64, groupId int64) error {
 	url := fmt.Sprintf("%swebservice/rest/server.php?wstoken=%s&wsfunction=%s&moodlewsrestformat=json&members[0][userid]=%d&members[0][groupid]=%d", m.base, m.token, "core_group_add_group_members", personId, groupId)
+	m.log.Debug("Fetch: %s", url)
 
 	body, err := GetUrl(url)
 	if err != nil {
@@ -826,6 +856,7 @@ func (m *MoodleApi) AddUser(firstName, lastName, email, username, password strin
 			url.QueryEscape(password))
 	}
 	//fmt.Println(l)
+	m.log.Debug("Fetch: %s", l)
 
 	body, err := GetUrl(l)
 	fmt.Println(body)
@@ -868,6 +899,7 @@ type CourseGroup struct {
 
 func (m *MoodleApi) GetPersonCourseList(userId int64) (*[]Course, error) {
 	url := fmt.Sprintf("%swebservice/rest/server.php?wstoken=%s&wsfunction=%s&moodlewsrestformat=json&userid=%d", m.base, m.token, "core_enrol_get_users_courses", userId)
+	m.log.Debug("Fetch: %s", url)
 	body, err := GetUrl(url)
 
 	if err != nil {
@@ -891,6 +923,7 @@ func (m *MoodleApi) GetPersonCourseList(userId int64) (*[]Course, error) {
 // List the details of each group in a course. Fetches: id, name, and shortname
 func (m *MoodleApi) GetCourseGroups(courseId int64) (*[]CourseGroup, error) {
 	url := fmt.Sprintf("%swebservice/rest/server.php?wstoken=%s&wsfunction=%s&moodlewsrestformat=json&courseid=%d", m.base, m.token, "core_group_get_course_groups", courseId)
+	m.log.Debug("Fetch: %s", url)
 	body, err := GetUrl(url)
 
 	if err != nil {
@@ -967,6 +1000,7 @@ func (cp *CoursePerson) HasGroupNamed(name string) bool {
 // List all people in a course. Results include the persons roles and groups
 func (m *MoodleApi) GetCourseRoles(courseId int64) (*[]CoursePerson, error) {
 	url := fmt.Sprintf("%swebservice/rest/server.php?wstoken=%s&wsfunction=%s&moodlewsrestformat=json&courseid=%d", m.base, m.token, "core_enrol_get_enrolled_users", courseId)
+	m.log.Debug("Fetch: %s", url)
 	body, err := GetUrl(url)
 
 	if err != nil {
@@ -988,6 +1022,7 @@ func (m *MoodleApi) GetCourseRoles(courseId int64) (*[]CoursePerson, error) {
 
 func (m *MoodleApi) GetCourses(value string) (*[]Course, error) {
 	url := fmt.Sprintf("%swebservice/rest/server.php?wstoken=%s&wsfunction=%s&moodlewsrestformat=json&criterianame=search&criteriavalue=%s", m.base, m.token, "core_course_search_courses", value)
+	m.log.Debug("Fetch: %s", url)
 	body, err := GetUrl(url)
 
 	if err != nil {
@@ -1025,6 +1060,7 @@ func (m *MoodleApi) GetCourses(value string) (*[]Course, error) {
 
 func (m *MoodleApi) GetSiteInfo() (string, string, string, int64, error) {
 	url := fmt.Sprintf("%swebservice/rest/server.php?wstoken=%s&wsfunction=%s&moodlewsrestformat=json", m.base, m.token, "core_webservice_get_site_info")
+	m.log.Debug("Fetch: %s", url)
 
 	body, err := GetUrl(url)
 
@@ -1104,6 +1140,7 @@ func (m *MoodleApi) GetAssignments(courses *[]Course) (*[]*AssignmentInfo, error
 	for i, c := range *courses {
 		url = fmt.Sprintf("%s&courseids%%5B%d%%5D=%d", url, i, c.MoodleId)
 	}
+	m.log.Debug("Fetch: %s", url)
 	body, err := GetUrl(url)
 
 	if err != nil {
@@ -1165,6 +1202,7 @@ type AssignmentSubmission struct {
 
 func (m *MoodleApi) GetAssignmentSubmissions(assignmentId int64) (*[]AssignmentSubmission, error) {
 	url := fmt.Sprintf("%swebservice/rest/server.php?wstoken=%s&wsfunction=%s&moodlewsrestformat=json&assignmentids[0]=%d", m.base, m.token, "mod_assign_get_submissions", assignmentId)
+	m.log.Debug("Fetch: %s", url)
 	body, err := GetUrl(url)
 
 	if err != nil {
