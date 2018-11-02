@@ -1137,13 +1137,14 @@ func GetUrl(url string) (string, error) {
 */
 
 type AssignmentInfo struct {
-	Id         int64      `json:"id"`
-	CmId       int64      `json:"cmid"`
-	CourseId   int64      `json:"courseid"`
-	CourseCode string     `json:"coursecode"`
-	CourseName string     `json:"coursename"`
-	Name       string     `json:"name"`
-	DueDate    *time.Time `json:"duedate"`
+	Id            int64      `json:"id"`
+	CmId          int64      `json:"cmid"`
+	CourseId      int64      `json:"courseid"`
+	CourseCode    string     `json:"coursecode"`
+	CourseName    string     `json:"coursename"`
+	Name          string     `json:"name"`
+	DueDate       *time.Time `json:"duedate"`
+	ExtensionDate *time.Time `json:"extensiondate"`
 }
 
 func (m *MoodleApi) GetAssignments(courses *[]Course) (*[]*AssignmentInfo, error) {
@@ -1204,14 +1205,15 @@ func (m *MoodleApi) GetAssignments(courses *[]Course) (*[]*AssignmentInfo, error
 }
 
 type AssignmentSubmission struct {
-	Id            int64  `json:"id"`
-	SubmissionId  int64  `json:"submissionid"`
-	UserId        int64  `json:"userid"`
-	Status        string `json:"status"`
-	GradingStatus string `json:"gradingstatus"`
+	Id            int64      `json:"id"`
+	SubmissionId  int64      `json:"submissionid"`
+	UserId        int64      `json:"userid"`
+	Status        string     `json:"status"`
+	GradingStatus string     `json:"gradingstatus"`
+	Extension     *time.Time `json:"extensiondate"`
 }
 
-func (m *MoodleApi) GetAssignmentSubmissions(assignmentId int64) (*[]AssignmentSubmission, error) {
+func (m *MoodleApi) GetAssignmentSubmissions(assignmentId int64) (*[]*AssignmentSubmission, error) {
 	url := fmt.Sprintf("%swebservice/rest/server.php?wstoken=%s&wsfunction=%s&moodlewsrestformat=json&assignmentids[0]=%d", m.base, m.token, "mod_assign_get_submissions", assignmentId)
 	m.log.Debug("Fetch: %s", url)
 	body, _, _, err := m.fetch.GetUrl(url)
@@ -1252,11 +1254,66 @@ func (m *MoodleApi) GetAssignmentSubmissions(assignmentId int64) (*[]AssignmentS
 		return nil, errors.New("Server returned unexpected response. " + err.Error())
 	}
 
-	assignments := make([]AssignmentSubmission, 0)
+	assignments := make([]*AssignmentSubmission, 0)
 	for _, k := range results.Assignments {
 		for _, i := range k.Submissions {
-			assignments = append(assignments, AssignmentSubmission{Id: k.Id, SubmissionId: i.Id, UserId: i.UserId, Status: i.Status, GradingStatus: i.GradingStatus})
+			assignments = append(assignments, &AssignmentSubmission{Id: k.Id, SubmissionId: i.Id, UserId: i.UserId, Status: i.Status, GradingStatus: i.GradingStatus})
 			//fmt.Println(i)
+		}
+	}
+
+	url2 := fmt.Sprintf("%swebservice/rest/server.php?wstoken=%s&wsfunction=%s&moodlewsrestformat=json&assignmentids[0]=%d", m.base, m.token, "mod_assign_get_user_flags", assignmentId)
+	m.log.Debug("Fetch: %s", url2)
+	body, _, _, err = m.fetch.GetUrl(url2)
+
+	if err != nil {
+		return nil, err
+	}
+
+	if strings.HasPrefix(body, "{\"exception\":\"") {
+		return nil, errors.New(body)
+	}
+
+	type Flag struct {
+		Id        int64 `json:"id"`
+		UserId    int64 `json:"userid"`
+		Extension int64 `json:"extensionduedate"`
+	}
+
+	type AssignFlag struct {
+		Id        int64  `json:"assignmentid"`
+		UserFlags []Flag `json:"userflags"`
+	}
+
+	type Result2 struct {
+		Assignments []AssignFlag `json:"assignments"`
+	}
+
+	var results2 Result2
+
+	if err := json.Unmarshal([]byte(body), &results2); err != nil {
+		return nil, errors.New("Server returned unexpected response. " + err.Error())
+	}
+
+	for _, k := range results2.Assignments {
+		for _, k := range k.UserFlags {
+			// for each extension found, add or append to assignment list
+			if k.Extension == 0 {
+				continue
+			}
+			var t *time.Time
+			tt := time.Unix(k.Extension, 0)
+			t = &tt
+			found := false
+			for _, a := range assignments {
+				if a.UserId == k.UserId && k.Extension > 0 {
+					a.Extension = t
+				}
+			}
+			if !found {
+				assignments = append(assignments, &AssignmentSubmission{UserId: k.UserId, Status: "new", GradingStatus: "", Extension: t})
+
+			}
 		}
 	}
 
