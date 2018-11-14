@@ -1142,6 +1142,154 @@ func GetUrl(url string) (string, error) {
 }
 */
 
+func (r *Restriction) IsRestricted(groups []CourseGroup) bool {
+	switch r.OP {
+	case "&":
+		// Check user is in every group
+		for _, r := range r.C {
+			found := false
+			for _, g := range groups {
+				if r.Id == g.Id {
+					found = true
+				}
+			}
+			if !found {
+				return true
+			}
+		}
+		return false
+	case "!&":
+		// Check user is not in every group
+		for _, r := range r.C {
+			found := false
+			for _, g := range groups {
+				if r.Id == g.Id {
+					found = true
+				}
+			}
+			if found {
+				return true
+			}
+		}
+		return false
+	case "|":
+		// Check user is in one of the groups
+		for _, r := range r.C {
+			for _, g := range groups {
+				if r.Id == g.Id {
+					return false
+				}
+			}
+		}
+		return true
+	case "!|":
+		// Check user is not in one of the groups
+		for _, r := range r.C {
+			for _, g := range groups {
+				if r.Id == g.Id {
+					return true
+				}
+			}
+		}
+		return false
+	default:
+		return false
+	}
+	return false
+}
+
+type Restriction struct {
+	OP    string         `json:"op"`
+	C     []RestrictionC `json:"c"`
+	Show  bool           `json:"show"`
+	ShowC []bool         `json:"showc"`
+}
+
+type RestrictionC struct {
+	Type string `json:"type"`
+	Id   int64  `json:"id"`
+	D    string `json:"d"`
+	T    int64  `json:"t"`
+}
+
+type CourseModule struct {
+	Id           int64       `json:"id"`
+	CourseId     int64       `json:"course"`
+	ModuleId     int64       `json:"module"`
+	InstanceId   int64       `json:"instance"`
+	SectionId    int64       `json:"section"`
+	ModuleName   string      `json:"modname"`
+	Availability Restriction `json:"availability"`
+	Name         string      `json:"name"`
+	Grade        int64       `json:"grade"`
+	Visible      bool        `json:"visible"`
+	Added        *time.Time  `json:"added"`
+}
+
+func (m *MoodleApi) GetCourseModule(cmid int64) (*CourseModule, error) {
+	url := fmt.Sprintf("%swebservice/rest/server.php?wstoken=%s&wsfunction=%s&moodlewsrestformat=json&cmid=%d", m.base, m.token, "core_course_get_course_module", cmid)
+	m.log.Debug("Fetch: %s", url)
+	body, _, _, err := m.fetch.GetUrl(url)
+
+	if err != nil {
+		return nil, err
+	}
+
+	if strings.HasPrefix(body, "{\"exception\":\"") {
+		return nil, errors.New(body)
+	}
+
+	type CourseModuleInt struct {
+		Id           int64  `json:"id"`
+		CourseId     int64  `json:"course"`
+		ModuleId     int64  `json:"module"`
+		InstanceId   int64  `json:"instance"`
+		SectionId    int64  `json:"section"`
+		ModuleName   string `json:"modname"`
+		Name         string `json:"name"`
+		Grade        int64  `json:"grade"`
+		GradePass    string `json:"gradepass"`
+		Availability string `json:"availability"`
+		Added        int64  `json:"added"`
+		Visible      int64  `json:"visible"`
+	}
+
+	type Result struct {
+		CM CourseModuleInt `json:"cm"`
+	}
+
+	var result Result
+
+	if err := json.Unmarshal([]byte(body), &result); err != nil {
+		return nil, errors.New("Server returned unexpected response. " + err.Error())
+	}
+
+	var t *time.Time
+	if result.CM.Added != 0 {
+		tt := time.Unix(result.CM.Added, 0)
+		t = &tt
+	}
+	cm := &CourseModule{
+		Id:         result.CM.Id,
+		CourseId:   result.CM.CourseId,
+		ModuleId:   result.CM.ModuleId,
+		InstanceId: result.CM.InstanceId,
+		SectionId:  result.CM.SectionId,
+		ModuleName: result.CM.ModuleName,
+		Name:       result.CM.Name,
+		Grade:      result.CM.Grade,
+		Visible:    result.CM.Visible == 1,
+		Added:      t}
+
+	if result.CM.Availability != "" {
+		if err := json.Unmarshal([]byte(result.CM.Availability), &cm.Availability); err != nil {
+			return nil, errors.New("Server returned unexpected response. " + err.Error())
+		}
+	}
+
+	return cm, nil
+}
+
 type AssignmentInfo struct {
 	Id            int64      `json:"id"`
 	CmId          int64      `json:"cmid"`
