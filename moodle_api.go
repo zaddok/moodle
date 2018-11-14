@@ -891,6 +891,12 @@ func (m *MoodleApi) AddUser(firstName, lastName, email, username, password strin
 }
 
 type CourseGroup struct {
+	Id          int64  `json:"id"`
+	Name        string `json:"name"`
+	Description string `json:"description"`
+}
+
+type CourseRole struct {
 	Id        int64  `json:"id"`
 	Name      string `json:"name"`
 	ShortName string `json:"shortname"`
@@ -958,7 +964,7 @@ type CoursePerson struct {
 	LastAccess   int64         `json:"lastaccess"`
 	FirstAccess  int64         `json:"firstaccess"`
 	Groups       []CourseGroup `json:"groups"`
-	Roles        []CourseGroup `json:"roles"`
+	Roles        []CourseRole  `json:"roles"`
 	CustomFields []CustomField `json:"customfields"`
 }
 
@@ -988,8 +994,9 @@ func (cp *CoursePerson) CustomField(name string) string {
 }
 
 func (cp *CoursePerson) HasGroupNamed(name string) bool {
+	name = strings.ToLower(name)
 	for _, i := range cp.Groups {
-		if name == i.Name {
+		if name == strings.ToLower(i.Name) || name == strings.ToLower(i.Description) {
 			return true
 		}
 	}
@@ -999,7 +1006,7 @@ func (cp *CoursePerson) HasGroupNamed(name string) bool {
 func (cp *CoursePerson) HasRoleNamed(name string) bool {
 	name = strings.ToLower(name)
 	for _, i := range cp.Roles {
-		if name == strings.ToLower(i.ShortName) {
+		if name == strings.ToLower(i.Name) || name == strings.ToLower(i.ShortName) {
 			return true
 		}
 	}
@@ -1021,7 +1028,6 @@ func (m *MoodleApi) GetCourseRoles(courseId int64) (*[]CoursePerson, error) {
 	}
 
 	var results []CoursePerson
-
 	if err := json.Unmarshal([]byte(body), &results); err != nil {
 		return nil, errors.New("Server returned unexpected response. " + err.Error())
 	}
