@@ -1013,6 +1013,57 @@ func (cp *CoursePerson) HasRoleNamed(name string) bool {
 	return false
 }
 
+type GradebookEntry struct {
+	UserId   int64           `json:"userid"`
+	Name     string          `json:"userfullname"`
+	MaxDepth int64           `json:"maxdepth"`
+	Item     []GradebookItem `json:"gradeitems"`
+}
+
+type GradebookItem struct {
+	Id                  int64   `json:"id"`
+	ItemName            string  `json:"itemname"`
+	ItemType            string  `json:"itemtype"`
+	ItemModule          string  `json:"itemmodule"`
+	ItemInstance        int64   `json:"iteminstance"`
+	ItemNumber          int64   `json:"itemnumber"`
+	CategoryId          int64   `json:"categoryid"`
+	OutcomeId           int64   `json:"outcomeid"`
+	CmId                int64   `json:"cmid"`
+	GradedDate          int64   `json:"gradedategraded"`
+	GradeRaw            float64 `json:"graderaw"`
+	GradeFormatted      string  `json:"gradeformatted"`
+	PercentageFormatted string  `json:"percentageformatted"`
+	WeightRaw           float64 `json:"weightraw"`
+	GradeIsHidden       bool    `json:"gradeishidden"`
+}
+
+// List all gradebook data associated with a course.
+func (m *MoodleApi) GetCourseGradebook(courseId int64) (*[]GradebookEntry, error) {
+	url := fmt.Sprintf("%swebservice/rest/server.php?wstoken=%s&wsfunction=%s&moodlewsrestformat=json&courseid=%d", m.base, m.token, "gradereport_user_get_grade_items", courseId)
+	m.log.Debug("Fetch: %s", url)
+	body, _, _, err := m.fetch.GetUrl(url)
+
+	if err != nil {
+		return nil, err
+	}
+
+	if strings.HasPrefix(body, "{\"exception\":\"") {
+		return nil, errors.New(body)
+	}
+
+	type Results struct {
+		Usergrades []GradebookEntry `json:"usergrades"`
+	}
+	var results Results
+
+	if err := json.Unmarshal([]byte(body), &results); err != nil {
+		return nil, errors.New("Server returned unexpected response. " + err.Error())
+	}
+
+	return &results.Usergrades, nil
+}
+
 // List all people in a course. Results include the persons roles and groups
 func (m *MoodleApi) GetCourseRoles(courseId int64) (*[]CoursePerson, error) {
 	url := fmt.Sprintf("%swebservice/rest/server.php?wstoken=%s&wsfunction=%s&moodlewsrestformat=json&courseid=%d", m.base, m.token, "core_enrol_get_enrolled_users", courseId)
