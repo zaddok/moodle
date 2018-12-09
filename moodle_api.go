@@ -33,6 +33,7 @@ import (
 	"net/smtp"
 	"net/url"
 	"sort"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -86,15 +87,23 @@ type Course struct {
 }
 
 type Person struct {
-	MoodleId      int64      `json:",omitempty"`
-	AlphacrucisId string     `json:",omitempty"`
-	Username      string     `json:",omitempty"`
-	Email         string     `json:",omitempty"`
-	PersonalEmail string     `json:",omitempty"`
-	FirstName     string     `json:",omitempty"`
-	LastName      string     `json:",omitempty"`
-	Created       *time.Time `json:",omitempty"`
-	Roles         []*Role    `json:"role,omitempty"`
+	MoodleId    int64         `json:",omitempty"`
+	Username    string        `json:",omitempty"`
+	Email       string        `json:",omitempty"`
+	FirstName   string        `json:",omitempty"`
+	LastName    string        `json:",omitempty"`
+	Created     *time.Time    `json:",omitempty"`
+	Roles       []*Role       `json:"role,omitempty"`
+	CustomField []CustomField `json:"customfields,omitempty"`
+}
+
+func (p *Person) Field(name string) string {
+	for _, c := range p.CustomField {
+		if c.Name == name {
+			return c.Value
+		}
+	}
+	return ""
 }
 
 type Role struct {
@@ -201,29 +210,19 @@ func (m *MoodleApi) GetPersonByUsername(username string) (*Person, error) {
 	if err := json.Unmarshal([]byte(body), &results); err != nil {
 		return nil, errors.New("Server returned unexpected response. " + err.Error())
 	}
+	if len(results) > 1 {
+		return nil, errors.New("Multiple moodle accounts match this username")
+	}
 
-	people := make([]Person, 0, len(results))
+	var person *Person
 	for _, i := range results {
-		p := Person{MoodleId: i.Id, FirstName: i.FirstName, LastName: i.LastName, Email: i.Email, Username: i.Username}
+		person := Person{MoodleId: i.Id, FirstName: i.FirstName, LastName: i.LastName, Email: i.Email, Username: i.Username}
 		for _, c := range i.CustomFields {
-			if c.Name == "alphacrucisid" {
-				p.AlphacrucisId = c.Value
-			}
-			if c.Name == "personalemail" {
-				p.PersonalEmail = c.Value
-			}
+			person.CustomField = append(person.CustomField, CustomField{Name: c.Name, Value: c.Value})
 		}
-		people = append(people, p)
 	}
 
-	if len(people) == 0 {
-		return nil, nil
-	}
-	if len(people) == 1 {
-		return &people[0], nil
-	}
-
-	return nil, errors.New("Multiple moodle accounts match this username")
+	return person, nil
 }
 
 type MoodleLogger interface {
@@ -271,29 +270,19 @@ func (m *MoodleApi) GetPersonByMoodleId(id int64) (*Person, error) {
 	if err := json.Unmarshal([]byte(body), &results); err != nil {
 		return nil, errors.New("Server returned unexpected response. " + err.Error())
 	}
+	if len(results) > 1 {
+		return nil, errors.New("Multiple moodle accounts match this username")
+	}
 
-	people := make([]Person, 0, len(results))
+	var person *Person
 	for _, i := range results {
-		p := Person{MoodleId: i.Id, FirstName: i.FirstName, LastName: i.LastName, Email: i.Email, Username: i.Username}
+		person := Person{MoodleId: i.Id, FirstName: i.FirstName, LastName: i.LastName, Email: i.Email, Username: i.Username}
 		for _, c := range i.CustomFields {
-			if c.Name == "alphacrucisid" {
-				p.AlphacrucisId = c.Value
-			}
-			if c.Name == "personalemail" {
-				p.PersonalEmail = c.Value
-			}
+			person.CustomField = append(person.CustomField, CustomField{Name: c.Name, Value: c.Value})
 		}
-		people = append(people, p)
 	}
 
-	if len(people) == 0 {
-		return nil, nil
-	}
-	if len(people) == 1 {
-		return &people[0], nil
-	}
-
-	return nil, errors.New("Multiple moodle accounts match this username")
+	return person, nil
 }
 
 // Set the password for a moodle account. Password must match moodle password policy.
@@ -354,12 +343,7 @@ func (m *MoodleApi) GetPersonByEmail(email string) (*Person, error) {
 	for _, i := range results {
 		p := Person{MoodleId: i.Id, FirstName: i.FirstName, LastName: i.LastName, Email: i.Email, Username: i.Username}
 		for _, c := range i.CustomFields {
-			if c.Name == "alphacrucisid" {
-				p.AlphacrucisId = c.Value
-			}
-			if c.Name == "personalemail" {
-				p.PersonalEmail = c.Value
-			}
+			p.CustomField = append(p.CustomField, CustomField{Name: c.Name, Value: c.Value})
 		}
 		people = append(people, p)
 	}
@@ -680,12 +664,7 @@ func (m *MoodleApi) GetPeopleByAttribute(attribute, value string) (*[]Person, er
 	for _, i := range results.People {
 		p := Person{MoodleId: i.Id, FirstName: i.FirstName, LastName: i.LastName, Email: i.Email, Username: i.Username}
 		for _, c := range i.CustomFields {
-			if c.Name == "alphacrucisid" {
-				p.AlphacrucisId = c.Value
-			}
-			if c.Name == "personalemail" {
-				p.PersonalEmail = c.Value
-			}
+			p.CustomField = append(p.CustomField, CustomField{Name: c.Name, Value: c.Value})
 		}
 		people = append(people, p)
 	}
@@ -1032,10 +1011,24 @@ type GradebookItem struct {
 	CmId                int64   `json:"cmid"`
 	GradedDate          int64   `json:"gradedategraded"`
 	GradeRaw            float64 `json:"graderaw"`
+	GradeMax            float64 `json:"grademax"`
 	GradeFormatted      string  `json:"gradeformatted"`
 	PercentageFormatted string  `json:"percentageformatted"`
 	WeightRaw           float64 `json:"weightraw"`
 	GradeIsHidden       bool    `json:"gradeishidden"`
+}
+
+func (i *GradebookItem) InferGrade() float64 {
+	if i.GradeMax > 0 && i.GradeRaw > 0 {
+		return i.GradeRaw / i.GradeMax * 100
+	}
+	if len(i.PercentageFormatted) > 0 && strings.HasSuffix(i.PercentageFormatted, "%") {
+		v := i.PercentageFormatted[0 : len(i.PercentageFormatted)-1]
+		v = strings.TrimSpace(v)
+		r, _ := strconv.ParseFloat(v, 64)
+		return r
+	}
+	return 0
 }
 
 // List all gradebook data associated with a course.
