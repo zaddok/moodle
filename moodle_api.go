@@ -993,28 +993,10 @@ func (cp *CoursePerson) HasRoleNamed(name string) bool {
 }
 
 type GradebookEntry struct {
-	UserId             int64           `json:"userid"`
-	Name               string          `json:"userfullname"`
-	MaxDepth           int64           `json:"maxdepth"`
-	GradeDateSubmitted int64           `json:"gradedatesubmitted"`
-	GradeDateGraded    int64           `json:"gradedategraded"`
-	Item               []GradebookItem `json:"gradeitems"`
-}
-
-func (e *GradebookEntry) Submitted() *time.Time {
-	if e.GradeDateSubmitted == 0 {
-		return nil
-	}
-	t := time.Unix(e.GradeDateSubmitted, 0)
-	return &t
-}
-
-func (e *GradebookEntry) Graded() *time.Time {
-	if e.GradeDateGraded == 0 {
-		return nil
-	}
-	t := time.Unix(e.GradeDateGraded, 0)
-	return &t
+	UserId   int64           `json:"userid"`
+	Name     string          `json:"userfullname"`
+	MaxDepth int64           `json:"maxdepth"`
+	Item     []GradebookItem `json:"gradeitems"`
 }
 
 type GradebookItem struct {
@@ -1031,6 +1013,8 @@ type GradebookItem struct {
 	GradeRaw            float64 `json:"graderaw"`
 	GradeMax            float64 `json:"grademax"`
 	GradeFormatted      string  `json:"gradeformatted"`
+	GradeDateSubmitted  int64   `json:"gradedatesubmitted"`
+	GradeDateGraded     int64   `json:"gradedategraded"`
 	PercentageFormatted string  `json:"percentageformatted"`
 	WeightRaw           float64 `json:"weightraw"`
 	GradeIsHidden       bool    `json:"gradeishidden"`
@@ -1047,6 +1031,22 @@ func (i *GradebookItem) InferGrade() float64 {
 		return r
 	}
 	return 0
+}
+
+func (e *GradebookItem) Submitted() *time.Time {
+	if e.GradeDateSubmitted == 0 {
+		return nil
+	}
+	t := time.Unix(e.GradeDateSubmitted, 0)
+	return &t
+}
+
+func (e *GradebookItem) Graded() *time.Time {
+	if e.GradeDateGraded == 0 {
+		return nil
+	}
+	t := time.Unix(e.GradeDateGraded, 0)
+	return &t
 }
 
 // List all gradebook data associated with a course.
