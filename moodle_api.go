@@ -993,10 +993,28 @@ func (cp *CoursePerson) HasRoleNamed(name string) bool {
 }
 
 type GradebookEntry struct {
-	UserId   int64           `json:"userid"`
-	Name     string          `json:"userfullname"`
-	MaxDepth int64           `json:"maxdepth"`
-	Item     []GradebookItem `json:"gradeitems"`
+	UserId             int64           `json:"userid"`
+	Name               string          `json:"userfullname"`
+	MaxDepth           int64           `json:"maxdepth"`
+	GradeDateSubmitted int64           `json:"gradedatesubmitted"`
+	GradeDateGraded    int64           `json:"gradedategraded"`
+	Item               []GradebookItem `json:"gradeitems"`
+}
+
+func (e *GradebookEntry) Submitted() *time.Time {
+	if e.GradeDateSubmitted == 0 {
+		return nil
+	}
+	t := time.Unix(e.GradeDateSubmitted, 0)
+	return &t
+}
+
+func (e *GradebookEntry) Graded() *time.Time {
+	if e.GradeDateGraded == 0 {
+		return nil
+	}
+	t := time.Unix(e.GradeDateGraded, 0)
+	return &t
 }
 
 type GradebookItem struct {
