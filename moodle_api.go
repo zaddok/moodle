@@ -1353,14 +1353,24 @@ func (m *MoodleApi) GetCourseModule(cmid int64) (*CourseModule, error) {
 }
 
 type AssignmentInfo struct {
-	Id            int64      `json:"id"`
-	CmId          int64      `json:"cmid"`
-	CourseId      int64      `json:"courseid"`
-	CourseCode    string     `json:"coursecode"`
-	CourseName    string     `json:"coursename"`
-	Name          string     `json:"name"`
-	DueDate       *time.Time `json:"duedate"`
-	ExtensionDate *time.Time `json:"extensiondate"`
+	Id                       int64      `json:"id"`
+	CmId                     int64      `json:"cmid"`
+	CourseId                 int64      `json:"courseid"`
+	CourseCode               string     `json:"coursecode"`
+	CourseName               string     `json:"coursename"`
+	Name                     string     `json:"name"`
+	NoSubmissions            int64      `json:"nosubmissions"`
+	SubmissionDrafts         int64      `json:"submissiondrafts"`
+	SendNotifications        int64      `json:"sendnotifications"`
+	SendLateNotifications    int64      `json:"sendlatenotifications"`
+	SendStudentNotifications int64      `json:"sendstudentnotifications"`
+	Grade                    int64      `json:"grade"`
+	CompletionSubmit         int64      `json:"completionsubmit"`
+	CutoffDate               int64      `json:"cutoffdate"`
+	AllowSubmissionsFromDate *time.Time `json:"allowsubmissionsfromdate"`
+	DueDate                  *time.Time `json:"duedate"`
+	GradingDueDate           *time.Time `json:"gradingduedate"`
+	ExtensionDate            *time.Time `json:"extensiondate"`
 }
 
 func (m *MoodleApi) GetAssignments(courses *[]Course) (*[]*AssignmentInfo, error) {
@@ -1418,6 +1428,51 @@ func (m *MoodleApi) GetAssignments(courses *[]Course) (*[]*AssignmentInfo, error
 	}
 
 	return &assignments, nil
+}
+
+type AssignmentRecord struct {
+	AssignmentId int64         `json:"assignmentid"`
+	Grades       []GradeRecord `json:"grades"`
+}
+
+type GradeRecord struct {
+	Id            int64   `json:"id"`
+	UserId        int64   `json:"userid"`
+	AttemptNumber int64   `json:"attemptnumber"`
+	TimeCreated   int64   `json:"timecreated"`
+	TimeModified  int64   `json:"timemodified"`
+	Grader        int64   `json:"grade"`
+	Grade         float64 `json:"grade"`
+}
+
+func (m *MoodleApi) GetAssignmentGrades(ids ...int64) (*[]AssignmentRecord, error) {
+	url := fmt.Sprintf("%swebservice/rest/server.php?wstoken=%s&wsfunction=%s&moodlewsrestformat=json", m.base, m.token, "mod_assign_get_grades")
+	for i, c := range ids {
+		url = fmt.Sprintf("%s&assignmentids%%5B%d%%5D=%d", url, i, c)
+	}
+	m.log.Debug("Fetch: %s", url)
+	body, _, _, err := m.fetch.GetUrl(url)
+
+	if err != nil {
+		return nil, err
+	}
+
+	if strings.HasPrefix(body, "{\"exception\":\"") {
+		return nil, errors.New(body)
+	}
+
+	type Result struct {
+		Assignments []AssignmentRecord `json:"assignments"`
+	}
+
+	var results Result
+
+	if err := json.Unmarshal([]byte(body), &results); err != nil {
+		return nil, errors.New("Server returned unexpected response. " + err.Error())
+	}
+
+	return &results.Assignments, nil
+
 }
 
 type AssignmentSubmission struct {
