@@ -276,10 +276,11 @@ func (m *MoodleApi) GetPersonByMoodleId(id int64) (*Person, error) {
 
 	var person *Person
 	for _, i := range results {
-		person := Person{MoodleId: i.Id, FirstName: i.FirstName, LastName: i.LastName, Email: i.Email, Username: i.Username}
+		person = &Person{MoodleId: i.Id, FirstName: i.FirstName, LastName: i.LastName, Email: i.Email, Username: i.Username}
 		for _, c := range i.CustomFields {
 			person.CustomField = append(person.CustomField, CustomField{Name: c.Name, Value: c.Value})
 		}
+		break
 	}
 
 	return person, nil
