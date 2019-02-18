@@ -87,14 +87,17 @@ type Course struct {
 }
 
 type Person struct {
-	MoodleId    int64         `json:",omitempty"`
-	Username    string        `json:",omitempty"`
-	Email       string        `json:",omitempty"`
-	FirstName   string        `json:",omitempty"`
-	LastName    string        `json:",omitempty"`
-	Created     *time.Time    `json:",omitempty"`
-	Roles       []*Role       `json:"role,omitempty"`
-	CustomField []CustomField `json:"customfields,omitempty"`
+	MoodleId             int64  `json:",omitempty"`
+	Username             string `json:",omitempty"`
+	Email                string `json:",omitempty"`
+	FirstName            string `json:",omitempty"`
+	LastName             string `json:",omitempty"`
+	ProfileImageUrl      string `json:"profileimageurl,omitempty"`
+	ProfileImageUrlSmall string `json:"profileimageurlsmall,omitempty"`
+	Suspended            bool
+	Created              *time.Time    `json:",omitempty"`
+	Roles                []*Role       `json:"role,omitempty"`
+	CustomField          []CustomField `json:"customfields,omitempty"`
 }
 
 func (p *Person) Field(name string) string {
@@ -327,12 +330,14 @@ func (m *MoodleApi) GetPersonByEmail(email string) (*Person, error) {
 	}
 
 	type Result struct {
-		Id           int64         `json:"id"`
-		FirstName    string        `json:"firstname"`
-		LastName     string        `json:"lastname"`
-		Email        string        `json:"email"`
-		Username     string        `json:"username"`
-		CustomFields []CustomField `json:"customfields"`
+		Id                   int64         `json:"id"`
+		FirstName            string        `json:"firstname"`
+		LastName             string        `json:"lastname"`
+		Email                string        `json:"email"`
+		Username             string        `json:"username"`
+		ProfileImageUrl      string        `json:"profileimageurl,omitempty"`
+		ProfileImageUrlSmall string        `json:"profileimageurlsmall,omitempty"`
+		CustomFields         []CustomField `json:"customfields"`
 	}
 
 	var results []Result
@@ -343,7 +348,11 @@ func (m *MoodleApi) GetPersonByEmail(email string) (*Person, error) {
 
 	people := make([]Person, 0, len(results))
 	for _, i := range results {
-		p := Person{MoodleId: i.Id, FirstName: i.FirstName, LastName: i.LastName, Email: i.Email, Username: i.Username}
+		if strings.Index(i.ProfileImageUrl, "gravatar") > 0 {
+			i.ProfileImageUrl = ""
+			i.ProfileImageUrlSmall = ""
+		}
+		p := Person{MoodleId: i.Id, FirstName: i.FirstName, LastName: i.LastName, Email: i.Email, Username: i.Username, ProfileImageUrl: i.ProfileImageUrl, ProfileImageUrlSmall: i.ProfileImageUrlSmall}
 		for _, c := range i.CustomFields {
 			p.CustomField = append(p.CustomField, CustomField{Name: c.Name, Value: c.Value})
 		}
@@ -644,12 +653,14 @@ func (m *MoodleApi) GetPeopleByAttribute(attribute, value string) (*[]Person, er
 	}
 
 	type Result struct {
-		Id           int64         `json:"id"`
-		FirstName    string        `json:"firstname"`
-		LastName     string        `json:"lastname"`
-		Email        string        `json:"email"`
-		Username     string        `json:"username"`
-		CustomFields []CustomField `json:"customfields"`
+		Id                   int64         `json:"id"`
+		FirstName            string        `json:"firstname"`
+		LastName             string        `json:"lastname"`
+		Email                string        `json:"email"`
+		Username             string        `json:"username"`
+		ProfileImageUrl      string        `json:"profileimageurl,omitempty"`
+		ProfileImageUrlSmall string        `json:"profileimageurlsmall,omitempty"`
+		CustomFields         []CustomField `json:"customfields"`
 	}
 	type Results struct {
 		People []Result `json:"users"`
@@ -664,7 +675,11 @@ func (m *MoodleApi) GetPeopleByAttribute(attribute, value string) (*[]Person, er
 
 	people := make([]Person, 0, len(results.People))
 	for _, i := range results.People {
-		p := Person{MoodleId: i.Id, FirstName: i.FirstName, LastName: i.LastName, Email: i.Email, Username: i.Username}
+		if strings.Index(i.ProfileImageUrl, "gravatar") > 0 {
+			i.ProfileImageUrl = ""
+			i.ProfileImageUrlSmall = ""
+		}
+		p := Person{MoodleId: i.Id, FirstName: i.FirstName, LastName: i.LastName, Email: i.Email, Username: i.Username, ProfileImageUrl: i.ProfileImageUrl, ProfileImageUrlSmall: i.ProfileImageUrlSmall}
 		for _, c := range i.CustomFields {
 			p.CustomField = append(p.CustomField, CustomField{Name: c.Name, Value: c.Value})
 		}
