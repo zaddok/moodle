@@ -886,6 +886,39 @@ func (m *MoodleApi) AddUser(firstName, lastName, email, username, password strin
 	return int64(data[0]["id"].(float64)), nil
 }
 
+// UpdateUser updates the basic details of a moodle account. Requires permission for "core_user_update_users". Password is only updated if password is not blank.
+func (m *MoodleApi) UpdateUser(id int64, firstName, lastName, email, username, password string) error {
+
+	if strings.Index(email, "@") < 0 {
+		return errors.New("Invalid email address")
+	}
+
+	var l string
+	l = fmt.Sprintf("%swebservice/rest/server.php?wstoken=%s&wsfunction=%s&moodlewsrestformat=json&users[0][id]=%d&users[0][firstname]=%s&users[0][lastname]=%s&users[0][email]=%s&users[0][username]=%s", m.base, m.token, "core_user_update_users", id,
+		url.QueryEscape(firstName),
+		url.QueryEscape(lastName),
+		url.QueryEscape(email),
+		url.QueryEscape(username))
+	if password != "" {
+		l = l + "&users[0][password]=" + url.QueryEscape(password)
+	}
+	//fmt.Println(l)
+	m.log.Debug("Fetch: %s", l)
+
+	body, _, _, err := m.fetch.GetUrl(l)
+	fmt.Println(body)
+	if err != nil {
+		return err
+	}
+
+	if strings.HasPrefix(body, "{\"exception\":\"") {
+		message := readError(body)
+		return errors.New(message + ". " + l)
+	}
+
+	return nil
+}
+
 type CourseGroup struct {
 	Id          int64  `json:"id"`
 	Name        string `json:"name"`
