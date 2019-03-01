@@ -1161,9 +1161,11 @@ func (m *MoodleApi) GetCourses(value string) (*[]Course, error) {
 	}
 
 	type Result struct {
-		Id   int64  `json:"id"`
-		Code string `json:"shortname"`
-		Name string `json:"fullname"`
+		Id          int64  `json:"id"`
+		Code        string `json:"shortname"`
+		Name        string `json:"fullname"`
+		DisplayName string `json:"displayname"`
+		CategoryId  int64  `json:"categoryid"`
 	}
 	type Results struct {
 		Courses []Result `json:"courses"`

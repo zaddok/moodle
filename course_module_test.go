@@ -9,6 +9,17 @@ func TestCourseModule(t *testing.T) {
 
 	api := NewMoodleApi(requireEnv("MOODLE_URL", t), requireEnv("MOODLE_KEY", t))
 
+	s, err := api.GetCourses(" LIBRARY")
+	if err != nil {
+		t.Errorf("GetCourses() failed: %v", err)
+	}
+	if s == nil {
+		t.Errorf("GetCourses() should return items")
+	}
+	if len(*s) < 1 {
+		t.Errorf("Expecting search results")
+	}
+
 	r, _ := api.GetCourseRoles(36)
 	if r == nil {
 		t.Errorf("Course does not exist")
@@ -19,7 +30,7 @@ func TestCourseModule(t *testing.T) {
 
 	cm, err := api.GetCourseModule(1155)
 	if err != nil {
-		t.Errorf("Module fetc failed: %v", err)
+		t.Errorf("Module fetch failed: %v", err)
 	}
 	if cm == nil {
 		t.Errorf("Module does not exist")
