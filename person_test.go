@@ -25,4 +25,8 @@ func TestPersonModule(t *testing.T) {
 
 	fmt.Printf("Found %d people\n", len(*people))
 
+	id, err := api.AddUser("FirstName", "LastName", "test@montebo.com", "test001", "tEst001!984-abc")
+	fmt.Printf("%d %v\n", id, err)
+	err = api.UpdateUser(id, "Mont", "ebo", "test@montebo.com", "test001", "")
+	fmt.Printf("%v\n", err)
 }
