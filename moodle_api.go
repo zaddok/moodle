@@ -1148,7 +1148,7 @@ func (m *MoodleApi) GetCourseRoles(courseId int64) (*[]CoursePerson, error) {
 }
 
 func (m *MoodleApi) GetCourses(value string) (*[]Course, error) {
-	url := fmt.Sprintf("%swebservice/rest/server.php?wstoken=%s&wsfunction=%s&moodlewsrestformat=json&criterianame=search&criteriavalue=%s", m.base, m.token, "core_course_search_courses", value)
+	url := fmt.Sprintf("%swebservice/rest/server.php?wstoken=%s&wsfunction=%s&moodlewsrestformat=json&criterianame=search&criteriavalue=%s", m.base, m.token, "core_course_search_courses", url.QueryEscape(value))
 	m.log.Debug("Fetch: %s", url)
 	body, _, _, err := m.fetch.GetUrl(url)
 
