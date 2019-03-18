@@ -444,29 +444,29 @@ func (m *MoodleApi) ResetPasswordWithEmail(email string) error {
 	// from the very beginning (no starttls)
 	conn, err := tls.Dial("tcp", fmt.Sprintf("%s:%d", m.smtpHost, m.smtpPort), tlsconfig)
 	if err != nil {
-		return err
+		return errors.New(fmt.Sprintf("tls.Dial(\"%s:%d\") failed: %v", m.smtpHost, m.smtpPort, err))
 	}
 
 	c, err := smtp.NewClient(conn, m.smtpHost)
 	if err != nil {
-		return err
+		return errors.New(fmt.Sprintf("SMTP.NewClient() failed: %v", err))
 	}
 
 	if err = c.Auth(auth); err != nil {
-		return err
+		return errors.New(fmt.Sprintf("SMTP.Auth() failed: %v", err))
 	}
 
 	if err = c.Mail(m.smtpFromEmail); err != nil {
-		return err
+		return errors.New(fmt.Sprintf("SMTP.Mail() failed: %v", err))
 	}
 
 	if err = c.Rcpt(p.Email); err != nil {
-		return err
+		return errors.New(fmt.Sprintf("SMTP.Rcpt() failed: %v", err))
 	}
 
 	w1, err := c.Data()
 	if err != nil {
-		return err
+		return errors.New(fmt.Sprintf("SMTP.Data() failed: %v", err))
 	}
 
 	_, err = w1.Write([]byte(msg))
@@ -476,7 +476,7 @@ func (m *MoodleApi) ResetPasswordWithEmail(email string) error {
 
 	err = w1.Close()
 	if err != nil {
-		return err
+		return errors.New(fmt.Sprintf("SMTP.Close() failed: %v", err))
 	}
 
 	c.Quit()
