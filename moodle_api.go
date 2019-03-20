@@ -109,6 +109,17 @@ func (p *Person) Field(name string) string {
 	return ""
 }
 
+func (p *Person) SetField(name, value string) {
+	for i, c := range p.CustomField {
+		if c.Name == name {
+			p.CustomField[i].Value = value
+			return
+		}
+	}
+	p.CustomField = append(p.CustomField, CustomField{Name: name, Value: value})
+	return
+}
+
 type Role struct {
 	Person             *Person `json:",omitempty"`
 	Course             *Course `json:",omitempty"`
