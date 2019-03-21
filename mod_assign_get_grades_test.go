@@ -40,21 +40,17 @@ func TestGetAssignments(t *testing.T) {
 	api := NewMoodleApi(requireEnv("MOODLE_URL", t), requireEnv("MOODLE_KEY", t))
 	api.SetLogger(&PrintMoodleLogger{})
 
-	r, err := api.GetAssignments(&[]Course{Course{MoodleId: 47}})
+	r, err := api.GetAssignmentsWithCourseId([]int{47})
 	if err != nil {
 		t.Errorf("API call failed")
 		return
 	}
-	if r == nil {
-		t.Errorf("API call should have returned a result")
-		return
-	}
-	if len(*r) < 1 {
+	if len(r) < 1 {
 		t.Errorf("No results found")
 		return
 	}
 
-	for _, a := range *r {
+	for _, a := range r {
 		fmt.Printf("%v\n", a)
 	}
 }

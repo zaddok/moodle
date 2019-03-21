@@ -1436,10 +1436,10 @@ type AssignmentInfo struct {
 	ExtensionDate            *time.Time `json:"extensiondate"`
 }
 
-func (m *MoodleApi) GetAssignments(courses *[]Course) (*[]*AssignmentInfo, error) {
+func (m *MoodleApi) GetAssignmentsWithCourseId(courseIds []int) ([]*AssignmentInfo, error) {
 	url := fmt.Sprintf("%swebservice/rest/server.php?wstoken=%s&wsfunction=%s&moodlewsrestformat=json&includenotenrolledcourses=1", m.base, m.token, "mod_assign_get_assignments")
-	for i, c := range *courses {
-		url = fmt.Sprintf("%s&courseids%%5B%d%%5D=%d", url, i, c.MoodleId)
+	for i, c := range courseIds {
+		url = fmt.Sprintf("%s&courseids%%5B%d%%5D=%d", url, i, c)
 	}
 	m.log.Debug("Fetch: %s", url)
 	body, _, _, err := m.fetch.GetUrl(url)
@@ -1490,7 +1490,7 @@ func (m *MoodleApi) GetAssignments(courses *[]Course) (*[]*AssignmentInfo, error
 		}
 	}
 
-	return &assignments, nil
+	return assignments[:], nil
 }
 
 type AssignmentRecord struct {
