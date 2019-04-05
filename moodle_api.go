@@ -25,7 +25,9 @@ package moodle
 
 import (
 	"bytes"
+	crand "crypto/rand"
 	"crypto/tls"
+	"encoding/binary"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -380,14 +382,74 @@ func (m *MoodleApi) GetPersonByEmail(email string) (*Person, error) {
 	return nil, errors.New("Multiple moodle accounts match this email address")
 }
 
-func RandomLetter() string {
-	bytes := make([]byte, 1)
-	bytes[0] = byte(65 + rand.Intn(90-65))
-	return string(bytes)
+const rst = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789"
+
+func NewCryptoSeededSource() rand.Source {
+	var seed int64
+	binary.Read(crand.Reader, binary.BigEndian, &seed)
+	return rand.NewSource(seed)
 }
 
+// RandomPassword differs from RandomString in that it ensures we dont have
+// a series of repeated or incrementing characters, and ensures we have at
+// least one uppercase lowercase, and number character.
 func RandomPassword() string {
-	return fmt.Sprintf("%s%s-%d%s%s", RandomString(4), RandomLetter(), rand.Intn(9), RandomString(4), strings.ToLower(RandomLetter()))
+	size := 10
+	random := rand.New(NewCryptoSeededSource())
+
+	bytes := make([]byte, size)
+	hasNumber := false
+	hasLowercase := false
+	hasUppercase := false
+	var last byte = 0
+	for i := 0; i < size; i++ {
+		if size > 2 && i == size-1 && hasUppercase == false {
+			c := 'B' + uint8(random.Int31n(25))
+			if c == 'O' {
+				c = 'A'
+			}
+			//fmt.Println("Force uppercase", string(c), "for", string(bytes))
+			bytes[i] = c
+			continue
+		}
+		if size > 3 && i == size-2 && hasLowercase == false {
+			c := 'b' + uint8(random.Int31n(25))
+			if c == 'l' {
+				c = 'a'
+			}
+			//fmt.Println("Force lowercase", string(c), "for", string(bytes))
+			bytes[i] = c
+			continue
+		}
+		if size > 4 && i == size-3 && hasNumber == false {
+			c := '2' + uint8(random.Int31n(8))
+			//fmt.Println("Force number", string(c), "for", string(bytes))
+			bytes[i] = c
+			continue
+		}
+
+		x := random.Intn(len(rst))
+		c := rst[x]
+
+		if c == last || c == last+1 {
+			i = i - 1
+			//fmt.Println("avoid increment", last, c)
+			continue
+		}
+
+		if c <= '9' {
+			hasNumber = true
+		} else if c <= 'Z' {
+			hasUppercase = true
+		} else {
+			hasLowercase = true
+		}
+
+		bytes[i] = c
+		last = c
+	}
+	s := string(bytes)
+	return s[0:5] + "-" + s[5:]
 }
 
 // Reset the password for a moodle account, and email the password to the user
