@@ -59,6 +59,11 @@ type MoodleApi struct {
 }
 
 func NewMoodleApi(base string, token string) *MoodleApi {
+	if base != "" {
+		if !strings.HasSuffix(base, "/") {
+			base = base + "/"
+		}
+	}
 	return &MoodleApi{
 		base:  base,
 		token: token,
@@ -74,6 +79,10 @@ func (m *MoodleApi) SetSmtpSettings(host string, port int, user, password string
 	m.smtpPort = port
 	m.smtpFromName = fromName
 	m.smtpFromEmail = fromEmail
+}
+
+func (m *MoodleApi) MoodleUrl() string {
+	return m.base
 }
 
 type Course struct {
@@ -408,7 +417,6 @@ func RandomPassword() string {
 			if c == 'O' {
 				c = 'A'
 			}
-			//fmt.Println("Force uppercase", string(c), "for", string(bytes))
 			bytes[i] = c
 			continue
 		}
@@ -417,13 +425,11 @@ func RandomPassword() string {
 			if c == 'l' {
 				c = 'a'
 			}
-			//fmt.Println("Force lowercase", string(c), "for", string(bytes))
 			bytes[i] = c
 			continue
 		}
 		if size > 4 && i == size-3 && hasNumber == false {
 			c := '2' + uint8(random.Int31n(8))
-			//fmt.Println("Force number", string(c), "for", string(bytes))
 			bytes[i] = c
 			continue
 		}
@@ -433,7 +439,6 @@ func RandomPassword() string {
 
 		if c == last || c == last+1 {
 			i = i - 1
-			//fmt.Println("avoid increment", last, c)
 			continue
 		}
 
