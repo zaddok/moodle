@@ -993,7 +993,6 @@ func (m *MoodleApi) AddGroupToCourse(courseId int64, groupName, groupDescription
 	if err != nil {
 		return 0, err
 	}
-	fmt.Println("Response:", body)
 	if body == "" {
 		return 0, errors.New("Moodle returned no response")
 	}
@@ -1004,11 +1003,11 @@ func (m *MoodleApi) AddGroupToCourse(courseId int64, groupName, groupDescription
 	}
 
 	type GroupInfo struct {
-		courseid    string
-		name        string
-		description string
-		id          int64
-		idnumber    string
+		Id          int64
+		Courseid    int64
+		Name        string
+		Description string
+		Idnumber    string
 	}
 
 	var response []GroupInfo
@@ -1019,7 +1018,7 @@ func (m *MoodleApi) AddGroupToCourse(courseId int64, groupName, groupDescription
 	if len(response) != 1 {
 		return 0, errors.New("Moodle returned unexpected response. " + err.Error())
 	}
-	fmt.Println("Response:", response[0])
+
 	return response[0].id, nil
 
 }
