@@ -986,12 +986,16 @@ func (m *MoodleApi) AddPersonToCourseGroup(personId int64, groupId int64) error 
 }
 
 func (m *MoodleApi) AddGroupToCourse(courseId int64, groupName, groupDescription string) (int64, error) {
-	url := fmt.Sprintf("%swebservice/rest/server.php?wstoken=%s&wsfunction=%s&moodlewsrestformat=json&groups[0][courseid]=%d&groups[0][name]=%s&groups[0][description]=%s", m.base, m.token, "core_group_create_groups", courseId, groupName, groupDescription)
+	url := fmt.Sprintf("%swebservice/rest/server.php?wstoken=%s&wsfunction=%s&moodlewsrestformat=json&groups[0][courseid]=%d&groups[0][name]=%s&groups[0][description]=%s", m.base, m.token, "core_group_create_groups", courseId, url.QueryEscape(groupName), url.QueryEscape(groupDescription))
 	m.log.Debug("Fetch: %s", url)
 
 	body, _, _, err := m.fetch.GetUrl(url)
 	if err != nil {
 		return 0, err
+	}
+
+	if body == "" {
+		return 0, errors.New("Moodle returned no response")
 	}
 
 	if strings.HasPrefix(body, "{\"exception\":\"") {
@@ -1010,10 +1014,10 @@ func (m *MoodleApi) AddGroupToCourse(courseId int64, groupName, groupDescription
 	var response []GroupInfo
 
 	if err := json.Unmarshal([]byte(body), &response); err != nil {
-		return 0, errors.New("Server returned unexpected response. " + err.Error())
+		return 0, errors.New("Moodle returned unexpected response. " + err.Error())
 	}
 	if len(response) != 1 {
-		return 0, errors.New("Server returned unexpected response. " + err.Error())
+		return 0, errors.New("Moodle returned unexpected response. " + err.Error())
 	}
 	return response[0].id, nil
 
