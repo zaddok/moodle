@@ -1019,7 +1019,7 @@ func (m *MoodleApi) AddGroupToCourse(courseId int64, groupName, groupDescription
 		return 0, errors.New("Moodle returned unexpected response. " + err.Error())
 	}
 
-	return response[0].id, nil
+	return response[0].Id, nil
 
 }
 
