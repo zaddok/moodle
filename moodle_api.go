@@ -27,10 +27,13 @@ import (
 	"bytes"
 	crand "crypto/rand"
 	"crypto/tls"
+	"encoding/base64"
 	"encoding/binary"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
+	"io/ioutil"
 	"math/rand"
 	"net/smtp"
 	"net/url"
@@ -310,6 +313,81 @@ func (m *MoodleApi) GetPersonByMoodleId(id int64) (*Person, error) {
 	}
 
 	return person, nil
+}
+
+type UploadResponse struct {
+	ItemId int64 `json:"itemid"`
+}
+
+// SetProfilePicture uploads a draft file, set is as a profile picture, then removes the draft file
+func (m *MoodleApi) SetProfilePicture(userMoodleId int64, r io.Reader) error {
+	now := time.Now()
+
+	data, err := ioutil.ReadAll(r)
+	if err != nil {
+		return err
+	}
+	img := base64.StdEncoding.EncodeToString(data)
+	url := fmt.Sprintf("%swebservice/rest/server.php?wstoken=%s&wsfunction=%s&moodlewsrestformat=json&filearea=draft&instanceid=%d&component=user&filepath=/&contextlevel=user&filename=profilepic%s.jpg&filecontent=%s&itemid=%d", m.base, m.token, "core_files_upload", userMoodleId, now.Format("20060102150405"), url.QueryEscape(img), userMoodleId)
+
+	// 1. Upload a draft file
+	//url := fmt.Sprintf("%swebservice/upload.php?token=%s&wsfunction=%s&moodlewsrestformat=json&filearea=draft&instanceid=%d&component=user&filepath=/&contextlevel=user&filename=profilepic%s.jpg&itemid=%d", m.base, m.token, "core_files_upload", userMoodleId, now.Format("20060102150405"), userMoodleId)
+	m.log.Debug("Fetch: %s", url)
+	body, _, _, err := m.fetch.GetUrl(url)
+	if err != nil {
+		return err
+	}
+	fmt.Println(body)
+	var draftFileId int64 = 0
+	if strings.HasPrefix(body, "{\"exception\":\"") {
+		message := readError(body)
+		return errors.New(message + ". " + url)
+	}
+	if strings.Index(body, "\"itemid\":") > 0 {
+		var u UploadResponse
+		if err := json.Unmarshal([]byte(body), &u); err != nil {
+			return errors.New("Server returned unexpected response. " + err.Error())
+		}
+		draftFileId = u.ItemId
+	} else {
+		return errors.New("Server returned unexpected response: " + body)
+	}
+	fmt.Println(draftFileId)
+
+	// 2. Update the profile picture
+	url = fmt.Sprintf("%swebservice/rest/server.php?wstoken=%s&wsfunction=%s&moodlewsrestformat=json&draftitemid=%d&userid=%d", m.base, m.token, "core_user_update_picture", draftFileId, userMoodleId)
+	m.log.Debug("Fetch: %s", url)
+	body, _, _, err = m.fetch.GetUrl(url)
+	if err != nil {
+		return err
+	}
+	if strings.HasPrefix(body, "{\"exception\":\"") {
+		message := readError(body)
+		return errors.New(message + ". " + url)
+	}
+	if strings.TrimSpace(body) != "null" {
+		return errors.New("Server returned unexpected response: " + body)
+	}
+
+	fmt.Println("profile set")
+
+	// 3. Remove the draft file
+	/*
+		url = fmt.Sprintf("%swebservice/rest/server.php?wstoken=%s&wsfunction=%s&moodlewsrestformat=json&draftitemid=0&delete=1", m.base, m.token, "core_user_update_picture")
+		m.log.Debug("Fetch: %s", url)
+		body, _, _, err = m.fetch.GetUrl(url)
+		if err != nil {
+			return err
+		}
+		if strings.HasPrefix(body, "{\"exception\":\"") {
+			message := readError(body)
+			return errors.New(message + ". " + url)
+		}
+		if strings.TrimSpace(body) != "null" {
+			return errors.New("Server returned unexpected response: " + body)
+		}*/
+
+	return nil
 }
 
 // Set the password for a moodle account. Password must match moodle password policy.
@@ -905,6 +983,40 @@ func (m *MoodleApi) AddPersonToCourseGroup(personId int64, groupId int64) error 
 	}
 
 	return nil
+}
+
+func (m *MoodleApi) AddGroupToCourse(courseId int64, groupName, groupDescription string) (int64, error) {
+	url := fmt.Sprintf("%swebservice/rest/server.php?wstoken=%s&wsfunction=%s&moodlewsrestformat=json&groups[0][courseid]=%d&groups[0][name]=%s&groups[0][description]=%s", m.base, m.token, "core_group_create_groups", courseId, groupName, groupDescription)
+	m.log.Debug("Fetch: %s", url)
+
+	body, _, _, err := m.fetch.GetUrl(url)
+	if err != nil {
+		return 0, err
+	}
+
+	if strings.HasPrefix(body, "{\"exception\":\"") {
+		message := readError(body)
+		return 0, errors.New(message + ". " + url)
+	}
+
+	type GroupInfo struct {
+		courseid    string
+		name        string
+		description string
+		id          int64
+		idnumber    string
+	}
+
+	var response []GroupInfo
+
+	if err := json.Unmarshal([]byte(body), &response); err != nil {
+		return 0, errors.New("Server returned unexpected response. " + err.Error())
+	}
+	if len(data) != 1 {
+		return 0, errors.New("Server returned unexpected response. " + err.Error())
+	}
+	return data[0].id, nil
+
 }
 
 func (m *MoodleApi) AddUser(firstName, lastName, email, username, password string) (int64, error) {

@@ -2,6 +2,7 @@ package moodle
 
 import (
 	"errors"
+	"io"
 	"io/ioutil"
 	"math/rand"
 	"net"
@@ -32,6 +33,7 @@ var uaHeaders [][][]string = [][][]string{
 
 type LookupUrl interface {
 	GetUrl(url string) (string, int, string, error)
+	PostFile(url string, r io.Reader) (string, int, string, error)
 }
 
 type DefaultLookupUrl struct {
@@ -71,6 +73,65 @@ func (d *DefaultLookupUrl) GetUrl(url string) (string, int, string, error) {
 	//req.Header.Set("Accept-Encoding","gzip, deflate")
 
 	response, err1 := client.Get(url)
+	if err1 != nil {
+		return "", 0, "", err1
+	}
+
+	contentType := response.Header.Get("Content-Type")
+	if response.StatusCode == 200 &&
+		!strings.HasPrefix(contentType, "application/xml") &&
+		!strings.HasPrefix(contentType, "application/json") &&
+		!strings.HasPrefix(contentType, "application/rss+xml") &&
+		!strings.HasPrefix(contentType, "application/atom+xml") &&
+		!strings.HasPrefix(contentType, "text/html") &&
+		!strings.HasPrefix(contentType, "text/json") &&
+		!strings.HasPrefix(contentType, "text/plain") &&
+		!strings.HasPrefix(contentType, "text/xml") {
+		return "", 0, contentType, errors.New("Ignored non-text response: " + contentType)
+	}
+
+	body, err := ioutil.ReadAll(response.Body)
+	if err != nil {
+		return "", 0, "", err
+	}
+
+	return strings.TrimSpace(string(body)), response.StatusCode, contentType, nil
+}
+
+// PostFile uploads binary content to the specified url
+func (d *DefaultLookupUrl) PostFile(url string, r io.Reader) (string, int, string, error) {
+	var netTransport = &http.Transport{
+		Dial: (&net.Dialer{
+			Timeout: 8 * time.Second,
+		}).Dial,
+		TLSHandshakeTimeout: 8 * time.Second,
+	}
+
+	if cookieJar == nil {
+		cookieJar, _ = cookiejar.New(nil)
+	}
+
+	var client = &http.Client{
+		Timeout:   time.Second * 16,
+		Transport: netTransport,
+		Jar:       cookieJar,
+	}
+
+	req, err := http.NewRequest("POST", url, r)
+	if err != nil {
+		return "", 0, "", err
+	}
+
+	if ua < 0 {
+		r := rand.New(rand.NewSource(time.Now().UnixNano()))
+		ua = r.Intn(len(uaHeaders))
+	}
+	for _, v := range uaHeaders[ua] {
+		req.Header.Set(v[0], v[1])
+	}
+	//req.Header.Set("Accept-Encoding","gzip, deflate")
+
+	response, err1 := client.Do(req)
 	if err1 != nil {
 		return "", 0, "", err1
 	}
