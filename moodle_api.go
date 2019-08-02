@@ -1012,10 +1012,10 @@ func (m *MoodleApi) AddGroupToCourse(courseId int64, groupName, groupDescription
 	if err := json.Unmarshal([]byte(body), &response); err != nil {
 		return 0, errors.New("Server returned unexpected response. " + err.Error())
 	}
-	if len(data) != 1 {
+	if len(response) != 1 {
 		return 0, errors.New("Server returned unexpected response. " + err.Error())
 	}
-	return data[0].id, nil
+	return response[0].id, nil
 
 }
 
@@ -1499,7 +1499,6 @@ func (r *Restriction) IsRestricted(groups []CourseGroup) bool {
 	default:
 		return false
 	}
-	return false
 }
 
 type Restriction struct {
