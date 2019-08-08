@@ -37,25 +37,28 @@ type LookupUrl interface {
 }
 
 type DefaultLookupUrl struct {
+	client *http.Client
 }
 
 // Fetch the content of a URL. Returns the contents, httpStatus, contentType, errorCode.
 func (d *DefaultLookupUrl) GetUrl(url string) (string, int, string, error) {
-	var netTransport = &http.Transport{
-		Dial: (&net.Dialer{
-			Timeout: 8 * time.Second,
-		}).Dial,
-		TLSHandshakeTimeout: 8 * time.Second,
-	}
+	if d.client == nil {
+		netTransport := &http.Transport{
+			Dial: (&net.Dialer{
+				Timeout: 8 * time.Second,
+			}).Dial,
+			TLSHandshakeTimeout: 8 * time.Second,
+		}
 
-	if cookieJar == nil {
-		cookieJar, _ = cookiejar.New(nil)
-	}
+		if cookieJar == nil {
+			cookieJar, _ = cookiejar.New(nil)
+		}
 
-	var client = &http.Client{
-		Timeout:   time.Second * 16,
-		Transport: netTransport,
-		Jar:       cookieJar,
+		d.client = &http.Client{
+			Timeout:   time.Second * 16,
+			Transport: netTransport,
+			Jar:       cookieJar,
+		}
 	}
 
 	req, err := http.NewRequest("GET", url, nil)
@@ -72,7 +75,7 @@ func (d *DefaultLookupUrl) GetUrl(url string) (string, int, string, error) {
 	}
 	//req.Header.Set("Accept-Encoding","gzip, deflate")
 
-	response, err1 := client.Get(url)
+	response, err1 := d.client.Get(url)
 	if err1 != nil {
 		return "", 0, "", err1
 	}
@@ -135,6 +138,7 @@ func (d *DefaultLookupUrl) PostFile(url string, r io.Reader) (string, int, strin
 	if err1 != nil {
 		return "", 0, "", err1
 	}
+	defer response.Body.Close()
 
 	contentType := response.Header.Get("Content-Type")
 	if response.StatusCode == 200 &&
