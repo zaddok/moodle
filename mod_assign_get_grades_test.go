@@ -35,12 +35,12 @@ func TestAssignmentGrades(t *testing.T) {
 	fmt.Printf("%v\n", *r)
 }
 
-func TestGetAssignments(t *testing.T) {
+func TestGetAssessmentInformation(t *testing.T) {
 
 	api := NewMoodleApi(requireEnv("MOODLE_URL", t), requireEnv("MOODLE_KEY", t))
 	api.SetLogger(&PrintMoodleLogger{})
 
-	r, err := api.GetAssignmentsWithCourseId([]int{47})
+	r, err := api.GetAssignmentsWithCourseId([]int{7})
 	if err != nil {
 		t.Errorf("API call failed")
 		return
@@ -49,8 +49,21 @@ func TestGetAssignments(t *testing.T) {
 		t.Errorf("No results found")
 		return
 	}
-
 	for _, a := range r {
-		fmt.Printf("%v\n", a)
+		fmt.Printf("%v,%v,%v\n", a.CourseId, a.Name, a.DueDate)
 	}
+
+	s, err := api.GetQuizzesWithCourseId([]int{7})
+	if err != nil {
+		t.Errorf("API call failed: %s", err)
+		return
+	}
+	if len(s) < 1 {
+		t.Errorf("No results found")
+		return
+	}
+	for _, a := range s {
+		fmt.Printf("%v,%v,%v\n", a.CourseId, a.Name, a.TimeClose)
+	}
+
 }

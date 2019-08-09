@@ -1639,7 +1639,6 @@ func (m *MoodleApi) GetAssignmentsWithCourseId(courseIds []int) ([]*AssignmentIn
 		CmId    int64  `json:"cmid"`
 		Name    string `json:"name"`
 		DueDate int64  `json:"duedate"`
-		//NoSubmissions bool   `json:"nosubmissions"`
 	}
 
 	type CourseAssign struct {
@@ -1670,6 +1669,67 @@ func (m *MoodleApi) GetAssignmentsWithCourseId(courseIds []int) ([]*AssignmentIn
 			ai := &AssignmentInfo{Id: a.Id, CmId: a.CmId, Name: a.Name, CourseCode: c.Code, CourseName: c.Name, CourseId: c.Id, DueDate: t}
 			assignments = append(assignments, ai)
 		}
+	}
+
+	return assignments[:], nil
+}
+
+type QuizInfo struct {
+	Id             int64      `json:"id"`
+	CmId           int64      `json:"cmid"`
+	CourseId       int64      `json:"courseid"`
+	CourseCode     string     `json:"coursecode"`
+	CourseName     string     `json:"coursename"`
+	Name           string     `json:"name"`
+	TimeClose      *time.Time `json:"duedate"`
+	GradingDueDate *time.Time `json:"gradingduedate"`
+	ExtensionDate  *time.Time `json:"extensiondate"`
+}
+
+func (m *MoodleApi) GetQuizzesWithCourseId(courseIds []int) ([]*QuizInfo, error) {
+	url := fmt.Sprintf("%swebservice/rest/server.php?wstoken=%s&wsfunction=%s&moodlewsrestformat=json&", m.base, m.token, "mod_quiz_get_quizzes_by_courses")
+	for i, c := range courseIds {
+		url = fmt.Sprintf("%s&courseids%%5B%d%%5D=%d", url, i, c)
+	}
+	m.log.Debug("Fetch: %s", url)
+	body, _, _, err := m.fetch.GetUrl(url)
+
+	if err != nil {
+		return nil, err
+	}
+
+	if strings.HasPrefix(body, "{\"exception\":\"") {
+		return nil, errors.New(body)
+	}
+
+	type QuizResult struct {
+		Id        int64  `json:"id"`
+		CourseId  int64  `json:"course"`
+		CmId      int64  `json:"coursemodule"`
+		Name      string `json:"name"`
+		TimeOpen  int64  `json:"timeopen"`
+		TimeClose int64  `json:"timeclose"`
+	}
+
+	type Result struct {
+		Quizzes []QuizResult `json:"quizzes"`
+	}
+
+	var results Result
+
+	if err := json.Unmarshal([]byte(body), &results); err != nil {
+		return nil, errors.New("Server returned unexpected response. " + err.Error())
+	}
+
+	assignments := make([]*QuizInfo, 0)
+	for _, quiz := range results.Quizzes {
+		var t *time.Time
+		if quiz.TimeClose != 0 {
+			tt := time.Unix(quiz.TimeClose, 0)
+			t = &tt
+		}
+		ai := &QuizInfo{Id: quiz.Id, CmId: quiz.CmId, Name: quiz.Name, CourseId: quiz.Id, TimeClose: t}
+		assignments = append(assignments, ai)
 	}
 
 	return assignments[:], nil
