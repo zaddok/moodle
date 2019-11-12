@@ -1787,6 +1787,8 @@ type AssignmentSubmission struct {
 	Status        string     `json:"status"`
 	GradingStatus string     `json:"gradingstatus"`
 	Extension     *time.Time `json:"extensiondate"`
+	TimeCreated   *time.Time `json:"timecreated"`
+	TimeModified  *time.Time `json:"timemodified"`
 }
 
 func (m *MoodleApi) GetAssignmentSubmissions(assignmentId int64) (*[]*AssignmentSubmission, error) {
@@ -1812,6 +1814,8 @@ func (m *MoodleApi) GetAssignmentSubmissions(assignmentId int64) (*[]*Assignment
 		UserId        int64    `json:"userid"`
 		Status        string   `json:"status"`
 		GradingStatus string   `json:"gradingstatus"`
+		TimeCreated   int64    `json:"timecreated"`
+		TimeModified  int64    `json:"timemodified"`
 		Plugins       []Plugin `json:"plugins"`
 	}
 
@@ -1833,7 +1837,17 @@ func (m *MoodleApi) GetAssignmentSubmissions(assignmentId int64) (*[]*Assignment
 	assignments := make([]*AssignmentSubmission, 0)
 	for _, k := range results.Assignments {
 		for _, i := range k.Submissions {
-			assignments = append(assignments, &AssignmentSubmission{Id: k.Id, SubmissionId: i.Id, UserId: i.UserId, Status: i.Status, GradingStatus: i.GradingStatus})
+			var timeCreated *time.Time
+			var timeModified *time.Time
+			if i.TimeCreated != 0 {
+				tt := time.Unix(i.TimeCreated, 0)
+				timeCreated = &tt
+			}
+			if i.TimeModified != 0 {
+				tt := time.Unix(i.TimeModified, 0)
+				timeModified = &tt
+			}
+			assignments = append(assignments, &AssignmentSubmission{Id: k.Id, SubmissionId: i.Id, UserId: i.UserId, Status: i.Status, GradingStatus: i.GradingStatus, TimeCreated: timeCreated, TimeModified: timeModified})
 			//fmt.Println(i)
 		}
 	}
