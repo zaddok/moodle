@@ -1687,7 +1687,7 @@ type QuizInfo struct {
 }
 
 func (m *MoodleApi) GetQuizzesWithCourseId(courseIds []int) ([]*QuizInfo, error) {
-	url := fmt.Sprintf("%swebservice/rest/server.php?wstoken=%s&wsfunction=%s&moodlewsrestformat=json&", m.base, m.token, "mod_quiz_get_quizzes_by_courses")
+	url := fmt.Sprintf("%swebservice/rest/server.php?wstoken=%s&wsfunction=%s&moodlewsrestformat=json", m.base, m.token, "mod_quiz_get_quizzes_by_courses")
 	for i, c := range courseIds {
 		url = fmt.Sprintf("%s&courseids%%5B%d%%5D=%d", url, i, c)
 	}
@@ -1729,6 +1729,73 @@ func (m *MoodleApi) GetQuizzesWithCourseId(courseIds []int) ([]*QuizInfo, error)
 			t = &tt
 		}
 		ai := &QuizInfo{Id: quiz.Id, CmId: quiz.CmId, Name: quiz.Name, CourseId: quiz.Id, TimeClose: t}
+		assignments = append(assignments, ai)
+	}
+
+	return assignments[:], nil
+}
+
+type ForumInfo struct {
+	Id         int64      `json:"id"`
+	CmId       int64      `json:"cmid"`
+	CourseId   int64      `json:"courseid"`
+	Scale      int64      `json:"scale"`
+	Grade      int64      `json:"grade"`
+	CourseCode string     `json:"coursecode"`
+	CourseName string     `json:"coursename"`
+	Name       string     `json:"name"`
+	DueDate    *time.Time `json:"duedate"`
+}
+
+func (m *MoodleApi) GetForumsWithCourseId(courseIds []int) ([]*ForumInfo, error) {
+	url := fmt.Sprintf("%swebservice/rest/server.php?wstoken=%s&wsfunction=%s&moodlewsrestformat=json", m.base, m.token, "mod_forum_get_forums_by_courses")
+	for i, c := range courseIds {
+		url = fmt.Sprintf("%s&courseids%%5B%d%%5D=%d", url, i, c)
+	}
+	m.log.Debug("Fetch: %s", url)
+	body, _, _, err := m.fetch.GetUrl(url)
+
+	if err != nil {
+		return nil, err
+	}
+
+	if strings.HasPrefix(body, "{\"exception\":\"") {
+		return nil, errors.New(body)
+	}
+
+	type ForumResult struct {
+		Id         int64  `json:"id"`
+		CourseId   int64  `json:"course"`
+		CmId       int64  `json:"cmid"`
+		Name       string `json:"name"`
+		DueDate    int64  `json:"duedate"`
+		GradeForum int64  `json:"grade_forum"`
+		Scale      int64  `json:"scale"`
+		Type       string `json:"type"`
+	}
+
+	var results []ForumResult
+
+	if err := json.Unmarshal([]byte(body), &results); err != nil {
+		return nil, errors.New("Server returned unexpected response. " + err.Error())
+	}
+
+	assignments := make([]*ForumInfo, 0)
+	for _, forum := range results {
+		var t *time.Time
+		if forum.DueDate != 0 {
+			tt := time.Unix(forum.DueDate, 0)
+			t = &tt
+		}
+		ai := &ForumInfo{
+			Id:       forum.Id,
+			Scale:    forum.Scale,
+			CmId:     forum.CmId,
+			Name:     forum.Name,
+			CourseId: forum.Id,
+			Grade:    forum.GradeForum,
+			DueDate:  t,
+		}
 		assignments = append(assignments, ai)
 	}
 
@@ -1847,7 +1914,15 @@ func (m *MoodleApi) GetAssignmentSubmissions(assignmentId int64) (*[]*Assignment
 				tt := time.Unix(i.TimeModified, 0)
 				timeModified = &tt
 			}
-			assignments = append(assignments, &AssignmentSubmission{Id: k.Id, SubmissionId: i.Id, UserId: i.UserId, Status: i.Status, GradingStatus: i.GradingStatus, TimeCreated: timeCreated, TimeModified: timeModified})
+			assignments = append(assignments, &AssignmentSubmission{
+				Id:            k.Id,
+				SubmissionId:  i.Id,
+				UserId:        i.UserId,
+				Status:        i.Status,
+				GradingStatus: i.GradingStatus,
+				TimeCreated:   timeCreated,
+				TimeModified:  timeModified,
+			})
 			//fmt.Println(i)
 		}
 	}
