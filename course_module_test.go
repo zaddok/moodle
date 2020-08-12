@@ -16,27 +16,27 @@ func TestCourseModule(t *testing.T) {
 	if s == nil {
 		t.Errorf("GetCourses() should return items")
 	}
-	if len(*s) < 1 {
+	if len(s) < 1 {
 		t.Errorf("Expecting search results")
 	}
 
-	roles, err := api.GetCourseRoles((*s)[0].MoodleId)
+	roles, err := api.GetCourseRoles(s[0].MoodleId)
 	if err != nil {
 		t.Errorf("GetCourseRoles() failed: %v", err)
 	}
 	if roles == nil {
 		t.Errorf("GetCourseRoles() should return results")
 	}
-	if len(*roles) < 1 {
+	if len(roles) < 1 {
 		t.Errorf("Expecting search results")
 	}
-	fmt.Printf("roles: %d\n", len(*roles))
+	fmt.Printf("roles: %d\n", len(roles))
 
 	r, _ := api.GetCourseRoles(36)
 	if r == nil {
 		t.Errorf("Course does not exist")
 	}
-	if len(*r) < 1 {
+	if len(r) < 1 {
 		t.Errorf("No roles in course")
 	}
 

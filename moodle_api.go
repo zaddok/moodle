@@ -913,7 +913,7 @@ func (m *MoodleApi) SetUserAttribute(personId int64, attribute, value string) er
 func (m *MoodleApi) SetAssessmentExtensionDate(userId, assessmentId int64, newDueDate time.Time) error {
 	url := fmt.Sprintf("%swebservice/rest/server.php?wstoken=%s&wsfunction=%s&moodlewsrestformat=json&assignmentid=%d&userflags[0][userid]=%d&userflags[0][extensionduedate]=%d", m.base, m.token,
 		"mod_assign_set_user_flags",
-		assignmentId,
+		assessmentId,
 		userId,
 		newDueDate.Unix())
 	m.log.Debug("Fetch: %s", url)
