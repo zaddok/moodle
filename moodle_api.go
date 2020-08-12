@@ -904,6 +904,38 @@ func (m *MoodleApi) SetUserAttribute(personId int64, attribute, value string) er
 	return nil
 }
 
+// SetAssessmentExtensionDate sets a new due date for an assignment for
+// a specific user. The userId parameter is the same ID that appears in the
+// moodle URL when viewing a user. The assessmentId is not the same ID as the
+// ID shown in a URL when viewing an assessment, it is the ID from the
+// mdl_assign table. This API updates the mdl_assign_user_flags database
+// table.
+func (m *MoodleApi) SetAssessmentExtensionDate(userId, assessmentId int64, newDueDate time.Time) error {
+	url := fmt.Sprintf("%swebservice/rest/server.php?wstoken=%s&wsfunction=%s&moodlewsrestformat=json&assignmentid=%d&userflags[0][userid]=%d&userflags[0][extensionduedate]=%d", m.base, m.token,
+		"mod_assign_set_user_flags",
+		assignmentId,
+		userId,
+		newDueDate.Unix())
+	m.log.Debug("Fetch: %s", url)
+
+	body, _, _, err := m.fetch.GetUrl(url)
+
+	if err != nil {
+		return err
+	}
+
+	if strings.HasPrefix(body, "{\"exception\":\"") {
+		message := readError(body)
+		return errors.New(message + ". " + url)
+	}
+
+	if strings.TrimSpace(body) != "" {
+		return errors.New("Server returned unexpected response: " + body)
+	}
+
+	return nil
+}
+
 func (m *MoodleApi) SetUserCustomField(personId int64, attribute, value string) error {
 	url := fmt.Sprintf("%swebservice/rest/server.php?wstoken=%s&wsfunction=%s&moodlewsrestformat=json&users[0][id]=%d&users[0][customfields][0][type]=%s&users[0][customfields][0][value]=%s", m.base, m.token, "core_user_update_users", personId,
 		url.QueryEscape(attribute),
@@ -1125,7 +1157,7 @@ type CourseRole struct {
 	ShortName string `json:"shortname"`
 }
 
-func (m *MoodleApi) GetPersonCourseList(userId int64) (*[]Course, error) {
+func (m *MoodleApi) GetPersonCourseList(userId int64) ([]Course, error) {
 	url := fmt.Sprintf("%swebservice/rest/server.php?wstoken=%s&wsfunction=%s&moodlewsrestformat=json&userid=%d", m.base, m.token, "core_enrol_get_users_courses", userId)
 	m.log.Debug("Fetch: %s", url)
 	body, _, _, err := m.fetch.GetUrl(url)
@@ -1145,11 +1177,11 @@ func (m *MoodleApi) GetPersonCourseList(userId int64) (*[]Course, error) {
 		return nil, errors.New("Server returned unexpected response. " + err.Error())
 	}
 
-	return &results, nil
+	return results[:], nil
 }
 
 // List the details of each group in a course. Fetches: id, name, and shortname
-func (m *MoodleApi) GetCourseGroups(courseId int64) (*[]CourseGroup, error) {
+func (m *MoodleApi) GetCourseGroups(courseId int64) ([]CourseGroup, error) {
 	url := fmt.Sprintf("%swebservice/rest/server.php?wstoken=%s&wsfunction=%s&moodlewsrestformat=json&courseid=%d", m.base, m.token, "core_group_get_course_groups", courseId)
 	m.log.Debug("Fetch: %s", url)
 	body, _, _, err := m.fetch.GetUrl(url)
@@ -1169,7 +1201,7 @@ func (m *MoodleApi) GetCourseGroups(courseId int64) (*[]CourseGroup, error) {
 		return nil, errors.New("Server returned unexpected response. " + err.Error())
 	}
 
-	return &results, nil
+	return results[:], nil
 }
 
 type CustomField struct {
@@ -1294,7 +1326,7 @@ func (e *GradebookItem) Graded() *time.Time {
 }
 
 // List all gradebook data associated with a course.
-func (m *MoodleApi) GetCourseGradebook(courseId int64) (*[]GradebookEntry, error) {
+func (m *MoodleApi) GetCourseGradebook(courseId int64) ([]GradebookEntry, error) {
 	url := fmt.Sprintf("%swebservice/rest/server.php?wstoken=%s&wsfunction=%s&moodlewsrestformat=json&courseid=%d", m.base, m.token, "gradereport_user_get_grade_items", courseId)
 	m.log.Debug("Fetch: %s", url)
 	body, _, _, err := m.fetch.GetUrl(url)
@@ -1316,11 +1348,11 @@ func (m *MoodleApi) GetCourseGradebook(courseId int64) (*[]GradebookEntry, error
 		return nil, errors.New("Server returned unexpected response. " + err.Error())
 	}
 
-	return &results.Usergrades, nil
+	return results.Usergrades[:], nil
 }
 
 // List all people in a course. Results include the persons roles and groups
-func (m *MoodleApi) GetCourseRoles(courseId int64) (*[]CoursePerson, error) {
+func (m *MoodleApi) GetCourseRoles(courseId int64) ([]CoursePerson, error) {
 	url := fmt.Sprintf("%swebservice/rest/server.php?wstoken=%s&wsfunction=%s&moodlewsrestformat=json&courseid=%d", m.base, m.token, "core_enrol_get_enrolled_users", courseId)
 	m.log.Debug("Fetch: %s", url)
 	body, _, _, err := m.fetch.GetUrl(url)
@@ -1338,10 +1370,10 @@ func (m *MoodleApi) GetCourseRoles(courseId int64) (*[]CoursePerson, error) {
 		return nil, errors.New("Server returned unexpected response. " + err.Error())
 	}
 
-	return &results, nil
+	return results[:], nil
 }
 
-func (m *MoodleApi) GetCourses(value string) (*[]Course, error) {
+func (m *MoodleApi) GetCourses(value string) ([]Course, error) {
 	url := fmt.Sprintf("%swebservice/rest/server.php?wstoken=%s&wsfunction=%s&moodlewsrestformat=json&criterianame=search&criteriavalue=%s", m.base, m.token, "core_course_search_courses", url.QueryEscape(value))
 	m.log.Debug("Fetch: %s", url)
 	body, _, _, err := m.fetch.GetUrl(url)
@@ -1378,7 +1410,7 @@ func (m *MoodleApi) GetCourses(value string) (*[]Course, error) {
 	}
 	sort.Sort(ByCourseCode(subjects))
 
-	return &subjects, nil
+	return subjects[:], nil
 }
 
 func (m *MoodleApi) GetSiteInfo() (string, string, string, int64, error) {
@@ -1745,6 +1777,7 @@ type ForumInfo struct {
 	CourseName string     `json:"coursename"`
 	Name       string     `json:"name"`
 	DueDate    *time.Time `json:"duedate"`
+	CutoffDate *time.Time `json:"cutoffdate"`
 }
 
 func (m *MoodleApi) GetForumsWithCourseId(courseIds []int) ([]*ForumInfo, error) {
@@ -1769,6 +1802,7 @@ func (m *MoodleApi) GetForumsWithCourseId(courseIds []int) ([]*ForumInfo, error)
 		CmId       int64  `json:"cmid"`
 		Name       string `json:"name"`
 		DueDate    int64  `json:"duedate"`
+		CutoffDate int64  `json:"cutoffdate"`
 		GradeForum int64  `json:"grade_forum"`
 		Scale      int64  `json:"scale"`
 		Type       string `json:"type"`
@@ -1782,19 +1816,25 @@ func (m *MoodleApi) GetForumsWithCourseId(courseIds []int) ([]*ForumInfo, error)
 
 	assignments := make([]*ForumInfo, 0)
 	for _, forum := range results {
-		var t *time.Time
+		var dueDate *time.Time
 		if forum.DueDate != 0 {
 			tt := time.Unix(forum.DueDate, 0)
-			t = &tt
+			dueDate = &tt
+		}
+		var cutoffDate *time.Time
+		if forum.CutoffDate != 0 {
+			tt := time.Unix(forum.CutoffDate, 0)
+			cutoffDate = &tt
 		}
 		ai := &ForumInfo{
-			Id:       forum.Id,
-			Scale:    forum.Scale,
-			CmId:     forum.CmId,
-			Name:     forum.Name,
-			CourseId: forum.Id,
-			Grade:    forum.GradeForum,
-			DueDate:  t,
+			Id:         forum.Id,
+			Scale:      forum.Scale,
+			CmId:       forum.CmId,
+			Name:       forum.Name,
+			CourseId:   forum.Id,
+			Grade:      forum.GradeForum,
+			DueDate:    dueDate,
+			CutoffDate: cutoffDate,
 		}
 		assignments = append(assignments, ai)
 	}
@@ -1858,7 +1898,7 @@ type AssignmentSubmission struct {
 	TimeModified  *time.Time `json:"timemodified"`
 }
 
-func (m *MoodleApi) GetAssignmentSubmissions(assignmentId int64) (*[]*AssignmentSubmission, error) {
+func (m *MoodleApi) GetAssignmentSubmissions(assignmentId int64) ([]*AssignmentSubmission, error) {
 	url := fmt.Sprintf("%swebservice/rest/server.php?wstoken=%s&wsfunction=%s&moodlewsrestformat=json&assignmentids[0]=%d", m.base, m.token, "mod_assign_get_submissions", assignmentId)
 	m.log.Debug("Fetch: %s", url)
 	body, _, _, err := m.fetch.GetUrl(url)
@@ -1982,7 +2022,7 @@ func (m *MoodleApi) GetAssignmentSubmissions(assignmentId int64) (*[]*Assignment
 		}
 	}
 
-	return &assignments, nil
+	return assignments[:], nil
 }
 
 func GetAttendance() error {
