@@ -929,7 +929,7 @@ func (m *MoodleApi) SetAssessmentExtensionDate(userId, assessmentId int64, newDu
 		return errors.New(message + ". " + url)
 	}
 
-	if strings.HasPrefix(strings.TrimSpace(body), "[{") && strings.IndexOf(body, "\"id\":") > 0 {
+	if strings.HasPrefix(strings.TrimSpace(body), "[{") && strings.Index(body, "\"id\":") > 0 {
 		return nil
 	}
 
