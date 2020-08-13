@@ -929,11 +929,11 @@ func (m *MoodleApi) SetAssessmentExtensionDate(userId, assessmentId int64, newDu
 		return errors.New(message + ". " + url)
 	}
 
-	if strings.TrimSpace(body) != "" {
-		return errors.New("Server returned unexpected response: " + body)
+	if strings.HasPrefix(strings.TrimSpace(body), "[{") && strings.IndexOf(body, "\"id\":") > 0 {
+		return nil
 	}
 
-	return nil
+	return errors.New("Server returned unexpected response: " + body)
 }
 
 func (m *MoodleApi) SetUserCustomField(personId int64, attribute, value string) error {
