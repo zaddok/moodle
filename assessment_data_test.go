@@ -53,6 +53,7 @@ func TestGetAssessmentInformation(t *testing.T) {
 		fmt.Printf("%v,%v,%v\n", a.CourseId, a.Name, a.DueDate)
 	}
 
+	fmt.Println("Check for Quizzes")
 	s, err := api.GetQuizzesWithCourseId([]int{3})
 	if err != nil {
 		t.Errorf("API call failed: %s", err)
@@ -65,8 +66,10 @@ func TestGetAssessmentInformation(t *testing.T) {
 	for _, a := range s {
 		fmt.Printf("%v,%v,%v\n", a.CourseId, a.Name, a.TimeClose)
 	}
+	fmt.Println()
 
-	f, err := api.GetForumsWithCourseId([]int{3})
+	fmt.Println("Check for Forums")
+	f, err := api.GetForumsWithCourseId([]int{194})
 	if err != nil {
 		t.Errorf("API call failed: %s", err)
 		return
@@ -78,6 +81,7 @@ func TestGetAssessmentInformation(t *testing.T) {
 	for _, a := range f {
 		fmt.Printf("%v,%v,%v,%v,%v\n", a.CourseId, a.Name, a.DueDate, a.Scale, a.Grade)
 	}
+	fmt.Println()
 
 	m, err := api.GetCourseGradebook(3)
 	if err != nil {
