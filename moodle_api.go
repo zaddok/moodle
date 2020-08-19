@@ -1850,6 +1850,104 @@ func (m *MoodleApi) GetForumsWithCourseId(courseIds []int) ([]*ForumInfo, error)
 	return assignments[:], nil
 }
 
+type ForumDiscussionResponse struct {
+	Discussions []*ForumDiscussion `json:"discussions"`
+	//Warnings    []ForumDiscussion `json:"warnings"`
+}
+
+type ForumDiscussion struct {
+	Id                     int64      `json:"id"`
+	Name                   string     `json:"name"`
+	UserId                 int64      `json:"userid"`
+	GroupId                int64      `json:"groupid"`
+	TimeModified           *time.Time `json:"timemodified"`
+	UserModified           *time.Time `json:"usermodified"`
+	TimeStart              *time.Time `json:"timestart"`
+	TimeEnd                *time.Time `json:"timeend"`
+	Discussion             int64      `json:"discussion"`
+	Parent                 int64      `json:"parent"`
+	Created                *time.Time `json:"created"`
+	Modified               *time.Time `json:"modified"`
+	Mailed                 int64      `json:"created"`
+	Subject                string     `json:"subject"`
+	Message                string     `json:"message"`
+	MessageFormat          int64      `json:"messageformat"`
+	MessageTrust           int64      `json:"messagetrust"`
+	Attachment             bool       `json:"attachment"`
+	TotalScore             int64      `json:"totalscore"`
+	MailNow                int64      `json:"mailnow"`
+	UserFullName           string     `json:"userfullname"`
+	UserModifiedFullName   string     `json:"usermodifiedfullname"`
+	UserPictureUrl         string     `json:"userpictureurl"`
+	UserModifiedPictureUrl string     `json:"usermodifiedpictureurl"`
+	NumReplies             int64      `json:"numreplies"`
+	NumUnread              int64      `json:"numunread"`
+	Pinned                 bool       `json:"pinned"`
+	Locked                 bool       `json:"locked"`
+	Starred                bool       `json:"starred"`
+	CanReply               bool       `json:"canreply"`
+	CanLock                bool       `json:"canlock"`
+	CanFavourite           bool       `json:"canfavourite"`
+}
+
+func (u *ForumDiscussion) UnmarshalJSON(data []byte) error {
+	type Alias ForumDiscussion
+	aux := &struct {
+		TimeModified int64 `json:"timemodified"`
+		UserModified int64 `json:"usermodified"`
+		TimeStart    int64 `json:"timestart"`
+		TimeEnd      int64 `json:"timeend"`
+		Created      int64 `json:"created"`
+		Modified     int64 `json:"modified"`
+		*Alias
+	}{
+		Alias: (*Alias)(u),
+	}
+	if err := json.Unmarshal(data, &aux); err != nil {
+		return err
+	}
+	a1 := time.Unix(aux.TimeModified, 0)
+	u.TimeModified = &a1
+
+	a2 := time.Unix(aux.UserModified, 0)
+	u.UserModified = &a2
+
+	a3 := time.Unix(aux.TimeStart, 0)
+	u.TimeStart = &a3
+
+	a4 := time.Unix(aux.TimeEnd, 0)
+	u.TimeEnd = &a4
+
+	a5 := time.Unix(aux.Created, 0)
+	u.Created = &a5
+
+	a6 := time.Unix(aux.Modified, 0)
+	u.Modified = &a6
+
+	return nil
+}
+
+func (m *MoodleApi) GetForumsDiscussions(forumId int) ([]*ForumDiscussion, error) {
+	url := fmt.Sprintf("%swebservice/rest/server.php?wstoken=%s&wsfunction=%s&moodlewsrestformat=json&forumid=%d", m.base, m.token, "mod_forum_get_forum_discussions", forumId)
+	m.log.Debug("Fetch: %s", url)
+	body, _, _, err := m.fetch.GetUrl(url)
+
+	if err != nil {
+		return nil, err
+	}
+
+	if strings.HasPrefix(body, "{\"exception\":\"") {
+		return nil, errors.New(body)
+	}
+
+	var results ForumDiscussionResponse
+	if err := json.Unmarshal([]byte(body), &results); err != nil {
+		return nil, errors.New("Server returned unexpected response. " + err.Error())
+	}
+
+	return results.Discussions[:], nil
+}
+
 type AssignmentRecord struct {
 	AssignmentId int64         `json:"assignmentid"`
 	Grades       []GradeRecord `json:"grades"`
@@ -1892,7 +1990,6 @@ func (m *MoodleApi) GetAssignmentGrades(ids ...int64) (*[]AssignmentRecord, erro
 	}
 
 	return &results.Assignments, nil
-
 }
 
 type AssignmentSubmission struct {

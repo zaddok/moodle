@@ -9,7 +9,8 @@ type PrintMoodleLogger struct {
 }
 
 func (ml *PrintMoodleLogger) Debug(message string, items ...interface{}) error {
-	fmt.Println(message, items)
+	fmt.Printf(message, items...)
+	fmt.Printf("\n")
 	return nil
 }
 
@@ -65,21 +66,6 @@ func TestGetAssessmentInformation(t *testing.T) {
 	}
 	for _, a := range s {
 		fmt.Printf("%v,%v,%v\n", a.CourseId, a.Name, a.TimeClose)
-	}
-	fmt.Println()
-
-	fmt.Println("Check for Forums")
-	f, err := api.GetForumsWithCourseId([]int{194})
-	if err != nil {
-		t.Errorf("API call failed: %s", err)
-		return
-	}
-	if len(f) < 1 {
-		t.Errorf("No results found")
-		return
-	}
-	for _, a := range f {
-		fmt.Printf("%v,%v,%v,%v,%v\n", a.CourseId, a.Name, a.DueDate, a.Scale, a.Grade)
 	}
 	fmt.Println()
 
