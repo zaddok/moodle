@@ -1776,6 +1776,7 @@ type ForumInfo struct {
 	CourseCode string     `json:"coursecode"`
 	CourseName string     `json:"coursename"`
 	Name       string     `json:"name"`
+	Assessed   bool       `json:"assessed"`
 	DueDate    *time.Time `json:"duedate"`
 	CutoffDate *time.Time `json:"cutoffdate"`
 }
@@ -1804,6 +1805,7 @@ func (m *MoodleApi) GetForumsWithCourseId(courseIds []int) ([]*ForumInfo, error)
 		DueDate    int64  `json:"duedate"`
 		CutoffDate int64  `json:"cutoffdate"`
 		GradeForum int64  `json:"grade_forum"`
+		Assessed   int64  `json:"assessed"`
 		Scale      int64  `json:"scale"`
 		Type       string `json:"type"`
 	}
@@ -1833,6 +1835,7 @@ func (m *MoodleApi) GetForumsWithCourseId(courseIds []int) ([]*ForumInfo, error)
 			Name:       forum.Name,
 			CourseId:   forum.Id,
 			Grade:      forum.GradeForum,
+			Assessed:   forum.Assessed != 0,
 			DueDate:    dueDate,
 			CutoffDate: cutoffDate,
 		}
