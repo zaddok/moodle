@@ -1768,17 +1768,18 @@ func (m *MoodleApi) GetQuizzesWithCourseId(courseIds []int) ([]*QuizInfo, error)
 }
 
 type ForumInfo struct {
-	Id         int64      `json:"id"`
-	CmId       int64      `json:"cmid"`
-	CourseId   int64      `json:"courseid"`
-	Scale      int64      `json:"scale"`
-	Grade      int64      `json:"grade"`
-	CourseCode string     `json:"coursecode"`
-	CourseName string     `json:"coursename"`
-	Name       string     `json:"name"`
-	Assessed   bool       `json:"assessed"`
-	DueDate    *time.Time `json:"duedate"`
-	CutoffDate *time.Time `json:"cutoffdate"`
+	Id               int64      `json:"id"`
+	CmId             int64      `json:"cmid"`
+	CourseId         int64      `json:"courseid"`
+	Scale            int64      `json:"scale"`
+	Grade            int64      `json:"grade"`
+	GradeForumNotify int64      `json:"grade_forum_notify"`
+	Name             string     `json:"forum_name"`
+	NumDiscussions   int64      `json:"numdiscussions"`
+	Type             string     `json:"type"`
+	Assessed         bool       `json:"assessed"`
+	DueDate          *time.Time `json:"duedate"`
+	CutoffDate       *time.Time `json:"cutoffdate"`
 }
 
 func (m *MoodleApi) GetForumsWithCourseId(courseIds []int) ([]*ForumInfo, error) {
@@ -1798,16 +1799,18 @@ func (m *MoodleApi) GetForumsWithCourseId(courseIds []int) ([]*ForumInfo, error)
 	}
 
 	type ForumResult struct {
-		Id         int64  `json:"id"`
-		CourseId   int64  `json:"course"`
-		CmId       int64  `json:"cmid"`
-		Name       string `json:"name"`
-		DueDate    int64  `json:"duedate"`
-		CutoffDate int64  `json:"cutoffdate"`
-		GradeForum int64  `json:"grade_forum"`
-		Assessed   int64  `json:"assessed"`
-		Scale      int64  `json:"scale"`
-		Type       string `json:"type"`
+		Id               int64  `json:"id"`
+		CourseId         int64  `json:"course"`
+		CmId             int64  `json:"cmid"`
+		Name             string `json:"name"`
+		DueDate          int64  `json:"duedate"`
+		CutoffDate       int64  `json:"cutoffdate"`
+		GradeForum       int64  `json:"grade_forum"`
+		GradeForumNotify int64  `json:"grade_forum_notify"`
+		Assessed         int64  `json:"assessed"`
+		Scale            int64  `json:"scale"`
+		NumDiscussions   int64  `json:"numdiscussions"`
+		Type             string `json:"type"`
 	}
 
 	var results []ForumResult
@@ -1829,15 +1832,17 @@ func (m *MoodleApi) GetForumsWithCourseId(courseIds []int) ([]*ForumInfo, error)
 			cutoffDate = &tt
 		}
 		ai := &ForumInfo{
-			Id:         forum.Id,
-			Scale:      forum.Scale,
-			CmId:       forum.CmId,
-			Name:       forum.Name,
-			CourseId:   forum.Id,
-			Grade:      forum.GradeForum,
-			Assessed:   forum.Assessed != 0,
-			DueDate:    dueDate,
-			CutoffDate: cutoffDate,
+			Id:             forum.Id,
+			Scale:          forum.Scale,
+			CmId:           forum.CmId,
+			Name:           forum.Name,
+			CourseId:       forum.CourseId,
+			Grade:          forum.GradeForum,
+			Assessed:       forum.Assessed != 0,
+			Type:           forum.Type,
+			NumDiscussions: forum.NumDiscussions,
+			DueDate:        dueDate,
+			CutoffDate:     cutoffDate,
 		}
 		assignments = append(assignments, ai)
 	}
