@@ -1182,7 +1182,7 @@ func (m *MoodleApi) GetPersonCourseList(userId int64) ([]Course, error) {
 
 // List the details of each group in a course. Fetches: id, name, and shortname
 func (m *MoodleApi) GetCourseGroups(courseId int64) ([]CourseGroup, error) {
-	url := fmt.Sprintf("%swebservice/rest/server.php?wstoken=%s&wsfunction=%s&moodlewsrestformat=json&courseid=%d", m.base, m.token, "core_group_get_course_groups", courseId)
+	url := fmt.Sprintf("%swebservice/rest/server.php?wstoken=%s&wsfunction=%s&moodlewsrestformat=json&moodlewssettingraw=true&courseid=%d", m.base, m.token, "core_group_get_course_groups", courseId)
 	m.log.Debug("Fetch: %s", url)
 	body, _, _, err := m.fetch.GetUrl(url)
 
@@ -1327,7 +1327,7 @@ func (e *GradebookItem) Graded() *time.Time {
 
 // List all gradebook data associated with a course.
 func (m *MoodleApi) GetCourseGradebook(courseId int64) ([]GradebookEntry, error) {
-	url := fmt.Sprintf("%swebservice/rest/server.php?wstoken=%s&wsfunction=%s&moodlewsrestformat=json&courseid=%d", m.base, m.token, "gradereport_user_get_grade_items", courseId)
+	url := fmt.Sprintf("%swebservice/rest/server.php?wstoken=%s&wsfunction=%s&moodlewsrestformat=json&moodlewssettingraw=true&courseid=%d", m.base, m.token, "gradereport_user_get_grade_items", courseId)
 	m.log.Debug("Fetch: %s", url)
 	body, _, _, err := m.fetch.GetUrl(url)
 
@@ -1353,7 +1353,7 @@ func (m *MoodleApi) GetCourseGradebook(courseId int64) ([]GradebookEntry, error)
 
 // List all people in a course. Results include the persons roles and groups
 func (m *MoodleApi) GetCourseRoles(courseId int64) ([]CoursePerson, error) {
-	url := fmt.Sprintf("%swebservice/rest/server.php?wstoken=%s&wsfunction=%s&moodlewsrestformat=json&courseid=%d", m.base, m.token, "core_enrol_get_enrolled_users", courseId)
+	url := fmt.Sprintf("%swebservice/rest/server.php?wstoken=%s&wsfunction=%s&moodlewsrestformat=json&moodlewssettingraw=true&courseid=%d", m.base, m.token, "core_enrol_get_enrolled_users", courseId)
 	m.log.Debug("Fetch: %s", url)
 	body, _, _, err := m.fetch.GetUrl(url)
 
@@ -1374,7 +1374,7 @@ func (m *MoodleApi) GetCourseRoles(courseId int64) ([]CoursePerson, error) {
 }
 
 func (m *MoodleApi) GetCourses(value string) ([]Course, error) {
-	url := fmt.Sprintf("%swebservice/rest/server.php?wstoken=%s&wsfunction=%s&moodlewsrestformat=json&criterianame=search&criteriavalue=%s", m.base, m.token, "core_course_search_courses", url.QueryEscape(value))
+	url := fmt.Sprintf("%swebservice/rest/server.php?wstoken=%s&wsfunction=%s&moodlewsrestformat=json&moodlewssettingraw=true&criterianame=search&criteriavalue=%s", m.base, m.token, "core_course_search_courses", url.QueryEscape(value))
 	m.log.Debug("Fetch: %s", url)
 	body, _, _, err := m.fetch.GetUrl(url)
 
@@ -1414,7 +1414,7 @@ func (m *MoodleApi) GetCourses(value string) ([]Course, error) {
 }
 
 func (m *MoodleApi) GetSiteInfo() (string, string, string, int64, error) {
-	url := fmt.Sprintf("%swebservice/rest/server.php?wstoken=%s&wsfunction=%s&moodlewsrestformat=json", m.base, m.token, "core_webservice_get_site_info")
+	url := fmt.Sprintf("%swebservice/rest/server.php?wstoken=%s&wsfunction=%s&moodlewsrestformat=json&moodlewssettingraw=true", m.base, m.token, "core_webservice_get_site_info")
 	m.log.Debug("Fetch: %s", url)
 
 	body, _, _, err := m.fetch.GetUrl(url)
@@ -1442,45 +1442,6 @@ func (m *MoodleApi) GetSiteInfo() (string, string, string, int64, error) {
 
 	return data["sitename"].(string), data["firstname"].(string), data["lastname"].(string), int64(data["userid"].(float64)), nil
 }
-
-/*
-func GetUrl(url string) (string, error) {
-
-	timeout := time.Duration(25 * time.Second)
-	client := http.Client{
-		Transport: &http.Transport{
-			Dial: func(netw, addr string) (net.Conn, error) {
-				deadline := time.Now().Add(15 * time.Second)
-				c, err := net.DialTimeout(netw, addr, time.Second*5)
-				if err != nil {
-					return nil, err
-				}
-				c.SetDeadline(deadline)
-				return c, nil
-			},
-		},
-		Timeout: timeout,
-	}
-
-	res, err := client.Get(url)
-	if err != nil {
-		if strings.Contains(err.Error(), "dial tcp: i/o timeout") {
-			return "", errors.New("Timout connecting to server")
-		}
-		if strings.Contains(err.Error(), "use of closed network connection") {
-			return "", errors.New("Timout waiting for server")
-		}
-		return "", err
-	}
-	defer res.Body.Close()
-	body, err := ioutil.ReadAll(res.Body)
-	if err != nil {
-		return string(body), err
-	}
-
-	return string(body), err
-}
-*/
 
 func (r *Restriction) IsRestricted(groups []CourseGroup) bool {
 	switch r.OP {
@@ -1566,7 +1527,7 @@ type CourseModule struct {
 }
 
 func (m *MoodleApi) GetCourseModule(cmid int64) (*CourseModule, error) {
-	url := fmt.Sprintf("%swebservice/rest/server.php?wstoken=%s&wsfunction=%s&moodlewsrestformat=json&cmid=%d", m.base, m.token, "core_course_get_course_module", cmid)
+	url := fmt.Sprintf("%swebservice/rest/server.php?wstoken=%s&wsfunction=%s&moodlewsrestformat=json&moodlewssettingraw=true&cmid=%d", m.base, m.token, "core_course_get_course_module", cmid)
 	m.log.Debug("Fetch: %s", url)
 	body, _, _, err := m.fetch.GetUrl(url)
 
@@ -1651,7 +1612,7 @@ type AssignmentInfo struct {
 }
 
 func (m *MoodleApi) GetAssignmentsWithCourseId(courseIds []int) ([]*AssignmentInfo, error) {
-	url := fmt.Sprintf("%swebservice/rest/server.php?wstoken=%s&wsfunction=%s&moodlewsrestformat=json&includenotenrolledcourses=1", m.base, m.token, "mod_assign_get_assignments")
+	url := fmt.Sprintf("%swebservice/rest/server.php?wstoken=%s&wsfunction=%s&moodlewsrestformat=json&moodlewssettingraw=true&includenotenrolledcourses=1", m.base, m.token, "mod_assign_get_assignments")
 	for i, c := range courseIds {
 		url = fmt.Sprintf("%s&courseids%%5B%d%%5D=%d", url, i, c)
 	}
@@ -1706,20 +1667,71 @@ func (m *MoodleApi) GetAssignmentsWithCourseId(courseIds []int) ([]*AssignmentIn
 	return assignments[:], nil
 }
 
+type QuizResponse struct {
+	Quizzes []*QuizInfo `json:"quizzes"`
+	//Warnings    []ForumDiscussion `json:"warnings"`
+}
+
 type QuizInfo struct {
-	Id             int64      `json:"id"`
-	CmId           int64      `json:"cmid"`
-	CourseId       int64      `json:"courseid"`
-	CourseCode     string     `json:"coursecode"`
-	CourseName     string     `json:"coursename"`
-	Name           string     `json:"name"`
-	TimeClose      *time.Time `json:"duedate"`
-	GradingDueDate *time.Time `json:"gradingduedate"`
-	ExtensionDate  *time.Time `json:"extensiondate"`
+	Id                    int64      `json:"id"`
+	CourseModuleId        int64      `json:"coursemodule"`
+	CourseId              int64      `json:"course"`
+	Name                  string     `json:"name"`
+	Intro                 string     `json:"intro"`
+	IntroFormat           int64      `json:"course"`
+	TimeOpen              *time.Time `json:"timeopen"`
+	TimeClose             *time.Time `json:"timeclose"`
+	TimeLimit             int64      `json:"timelimit"`
+	PreferredBehaviour    string     `json:"preferredbehaviour"`
+	Attempts              int64      `json:"attempts"`
+	GradeMethod           int64      `json:"grademethod"`
+	DecimalPoints         int64      `json:"decimalpoints"`
+	QuestionDecimalPoints int64      `json:"questiondecimalpoints"`
+	ShuffleAnswers        int64      `json:"shuffleanswers"`
+	SumGrades             int64      `json:"sumgrades"`
+	Grade                 int64      `json:"grade"`
+	Created               *time.Time `json:"timecreated"`
+	Modified              *time.Time `json:"timemodified"`
+	Password              string     `json:"password"`
+	Subnet                string     `json:"subnet"`
+	HasFeedback           int64      `json:"hasfeedback"`
+	Section               int64      `json:"section"`
+	Visible               int64      `json:"visible"`
+	GroupMode             int64      `json:"groupmode"`
+	GroupingId            int64      `json:"groupingid"`
+}
+
+func (q *QuizInfo) UnmarshalJSON(data []byte) error {
+	type Alias QuizInfo
+	aux := &struct {
+		TimeOpen  int64 `json:"timeopen"`
+		TimeClose int64 `json:"timeclose"`
+		Created   int64 `json:"timecreated"`
+		Modified  int64 `json:"timemodified"`
+		*Alias
+	}{
+		Alias: (*Alias)(q),
+	}
+	if err := json.Unmarshal(data, &aux); err != nil {
+		return err
+	}
+	a1 := time.Unix(aux.Created, 0)
+	q.Created = &a1
+
+	a2 := time.Unix(aux.Modified, 0)
+	q.Modified = &a2
+
+	a3 := time.Unix(aux.TimeOpen, 0)
+	q.TimeOpen = &a3
+
+	a4 := time.Unix(aux.TimeClose, 0)
+	q.TimeClose = &a4
+
+	return nil
 }
 
 func (m *MoodleApi) GetQuizzesWithCourseId(courseIds []int) ([]*QuizInfo, error) {
-	url := fmt.Sprintf("%swebservice/rest/server.php?wstoken=%s&wsfunction=%s&moodlewsrestformat=json", m.base, m.token, "mod_quiz_get_quizzes_by_courses")
+	url := fmt.Sprintf("%swebservice/rest/server.php?wstoken=%s&wsfunction=%s&moodlewsrestformat=json&moodlewssettingraw=true", m.base, m.token, "mod_quiz_get_quizzes_by_courses")
 	for i, c := range courseIds {
 		url = fmt.Sprintf("%s&courseids%%5B%d%%5D=%d", url, i, c)
 	}
@@ -1734,37 +1746,13 @@ func (m *MoodleApi) GetQuizzesWithCourseId(courseIds []int) ([]*QuizInfo, error)
 		return nil, errors.New(body)
 	}
 
-	type QuizResult struct {
-		Id        int64  `json:"id"`
-		CourseId  int64  `json:"course"`
-		CmId      int64  `json:"coursemodule"`
-		Name      string `json:"name"`
-		TimeOpen  int64  `json:"timeopen"`
-		TimeClose int64  `json:"timeclose"`
-	}
-
-	type Result struct {
-		Quizzes []QuizResult `json:"quizzes"`
-	}
-
-	var results Result
+	var results QuizResponse
 
 	if err := json.Unmarshal([]byte(body), &results); err != nil {
 		return nil, errors.New("Server returned unexpected response. " + err.Error())
 	}
 
-	assignments := make([]*QuizInfo, 0)
-	for _, quiz := range results.Quizzes {
-		var t *time.Time
-		if quiz.TimeClose != 0 {
-			tt := time.Unix(quiz.TimeClose, 0)
-			t = &tt
-		}
-		ai := &QuizInfo{Id: quiz.Id, CmId: quiz.CmId, Name: quiz.Name, CourseId: quiz.Id, TimeClose: t}
-		assignments = append(assignments, ai)
-	}
-
-	return assignments[:], nil
+	return results.Quizzes[:], nil
 }
 
 type ForumInfo struct {
@@ -1783,7 +1771,7 @@ type ForumInfo struct {
 }
 
 func (m *MoodleApi) GetForumsWithCourseId(courseIds []int) ([]*ForumInfo, error) {
-	url := fmt.Sprintf("%swebservice/rest/server.php?wstoken=%s&wsfunction=%s&moodlewsrestformat=json", m.base, m.token, "mod_forum_get_forums_by_courses")
+	url := fmt.Sprintf("%swebservice/rest/server.php?wstoken=%s&wsfunction=%s&moodlewsrestformat=json&moodlewssettingraw=true", m.base, m.token, "mod_forum_get_forums_by_courses")
 	for i, c := range courseIds {
 		url = fmt.Sprintf("%s&courseids%%5B%d%%5D=%d", url, i, c)
 	}
@@ -1928,7 +1916,7 @@ func (u *ForumDiscussion) UnmarshalJSON(data []byte) error {
 }
 
 func (m *MoodleApi) GetForumsDiscussions(forumId int) ([]*ForumDiscussion, error) {
-	url := fmt.Sprintf("%swebservice/rest/server.php?wstoken=%s&wsfunction=%s&moodlewsrestformat=json&forumid=%d", m.base, m.token, "mod_forum_get_forum_discussions", forumId)
+	url := fmt.Sprintf("%swebservice/rest/server.php?wstoken=%s&wsfunction=%s&moodlewsrestformat=json&moodlewssettingraw=true&forumid=%d", m.base, m.token, "mod_forum_get_forum_discussions", forumId)
 	m.log.Debug("Fetch: %s", url)
 	body, _, _, err := m.fetch.GetUrl(url)
 
@@ -1964,7 +1952,7 @@ type GradeRecord struct {
 }
 
 func (m *MoodleApi) GetAssignmentGrades(ids ...int64) (*[]AssignmentRecord, error) {
-	url := fmt.Sprintf("%swebservice/rest/server.php?wstoken=%s&wsfunction=%s&moodlewsrestformat=json", m.base, m.token, "mod_assign_get_grades")
+	url := fmt.Sprintf("%swebservice/rest/server.php?wstoken=%s&wsfunction=%s&moodlewsrestformat=json&moodlewssettingraw=true", m.base, m.token, "mod_assign_get_grades")
 	for i, c := range ids {
 		url = fmt.Sprintf("%s&assignmentids%%5B%d%%5D=%d", url, i, c)
 	}
@@ -2004,7 +1992,7 @@ type AssignmentSubmission struct {
 }
 
 func (m *MoodleApi) GetAssignmentSubmissions(assignmentId int64) ([]*AssignmentSubmission, error) {
-	url := fmt.Sprintf("%swebservice/rest/server.php?wstoken=%s&wsfunction=%s&moodlewsrestformat=json&assignmentids[0]=%d", m.base, m.token, "mod_assign_get_submissions", assignmentId)
+	url := fmt.Sprintf("%swebservice/rest/server.php?wstoken=%s&wsfunction=%s&moodlewsrestformat=json&moodlewssettingraw=true&assignmentids[0]=%d", m.base, m.token, "mod_assign_get_submissions", assignmentId)
 	m.log.Debug("Fetch: %s", url)
 	body, _, _, err := m.fetch.GetUrl(url)
 
@@ -2072,7 +2060,7 @@ func (m *MoodleApi) GetAssignmentSubmissions(assignmentId int64) ([]*AssignmentS
 		}
 	}
 
-	url2 := fmt.Sprintf("%swebservice/rest/server.php?wstoken=%s&wsfunction=%s&moodlewsrestformat=json&assignmentids[0]=%d", m.base, m.token, "mod_assign_get_user_flags", assignmentId)
+	url2 := fmt.Sprintf("%swebservice/rest/server.php?wstoken=%s&wsfunction=%s&moodlewsrestformat=json&moodlewssettingraw=true&assignmentids[0]=%d", m.base, m.token, "mod_assign_get_user_flags", assignmentId)
 	m.log.Debug("Fetch: %s", url2)
 	body, _, _, err = m.fetch.GetUrl(url2)
 
