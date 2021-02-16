@@ -11,7 +11,7 @@ func TestGetQuizzesWithCourseId(t *testing.T) {
 	api.SetLogger(&PrintMoodleLogger{})
 
 	fmt.Println("Check for Quizzes")
-	quizzes, err := api.GetQuizzesWithCourseId([]int{181, 187, 194})
+	quizzes, err := api.GetQuizzesWithCourseId([]int{36})
 	if err != nil {
 		t.Errorf("API call failed: %s", err)
 		return
@@ -21,10 +21,11 @@ func TestGetQuizzesWithCourseId(t *testing.T) {
 		return
 	}
 	for _, a := range quizzes {
-		fmt.Printf("%v,%v,%v, grademethod: %v, grade: %v, behaviour: %v\n", a.CourseId, a.Name, a.TimeClose, a.GradeMethod, a.Grade, a.PreferredBehaviour)
+		fmt.Printf("id: %d, course: %d, %v,%v, grademethod: %v, grade: %v, behaviour: %v\n", a.Id, a.CourseId, a.Name, a.TimeClose, a.GradeMethod, a.Grade, a.PreferredBehaviour)
 
 		/*
-			discussions, err := api.GetForumsDiscussions(int(a.Id))
+
+			discussions, err := api.GetQuizResults(int(a.Id))
 			if err != nil {
 				t.Errorf("API call failed: %s", err)
 				return
@@ -36,6 +37,7 @@ func TestGetQuizzesWithCourseId(t *testing.T) {
 				fmt.Println("    ", d.Id, d.Name, d.Created)
 			}
 		*/
+
 	}
 	fmt.Println()
 

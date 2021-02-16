@@ -1018,6 +1018,13 @@ func (m *MoodleApi) AddPersonToCourseGroup(personId int64, groupId int64) error 
 }
 
 func (m *MoodleApi) AddGroupToCourse(courseId int64, groupName, groupDescription string) (int64, error) {
+	if courseId <= 0 {
+		return 0, errors.New("AddGroupToCourse() requires a valid courseId")
+	}
+	if len(strings.TrimSpace(groupName)) == 0 {
+		return 0, errors.New("AddGroupToCourse() requires a valid groupName")
+	}
+
 	url := fmt.Sprintf("%swebservice/rest/server.php?wstoken=%s&wsfunction=%s&moodlewsrestformat=json&groups[0][courseid]=%d&groups[0][name]=%s&groups[0][description]=%s", m.base, m.token, "core_group_create_groups", courseId, url.QueryEscape(groupName), url.QueryEscape(groupDescription))
 	m.log.Debug("Fetch: %s", url)
 
@@ -1678,7 +1685,7 @@ type QuizInfo struct {
 	CourseId              int64      `json:"course"`
 	Name                  string     `json:"name"`
 	Intro                 string     `json:"intro"`
-	IntroFormat           int64      `json:"course"`
+	IntroFormat           int64      `json:"introformat"`
 	TimeOpen              *time.Time `json:"timeopen"`
 	TimeClose             *time.Time `json:"timeclose"`
 	TimeLimit             int64      `json:"timelimit"`
