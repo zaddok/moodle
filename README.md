@@ -4,7 +4,7 @@ This is a simple Moodle API that wraps the Moodle JSON Web Service API.
 It is part of a project that is currently in use in a live production environment, and
 is under active development.
 
-No warranty is given or implied. Use at your own risk.
+It was developed in a hurry, no warranty is given or implied. Use at your own risk. Pull requests welcome.
 
 
 ## Example usage
